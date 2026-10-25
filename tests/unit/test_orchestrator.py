@@ -5,6 +5,7 @@ import pytest
 from contracts.common import DecisionOutcome, RiskTier, TransactionChannel
 from contracts.transactions import Transaction
 from services.orchestrator.state_machine import ArgusOrchestrator
+from services.policy.engine import PolicyEvaluationResult
 
 
 def test_orchestrator_routine_t0_auto_pass():
@@ -65,6 +66,7 @@ def test_orchestrator_borderline_t1_hitl_checkpoint():
     assert state.hitl_required is True
     assert state.hitl_status == "PENDING"
     assert state.hitl_tier == RiskTier.T1
+    assert state.decision_record is not None
     assert "aml_structuring_window" in state.decision_record.evidence_ids
     assert state.narrative["is_verified"] is True
 
@@ -95,16 +97,12 @@ def test_orchestrator_t2_maker_checker_enforcement():
         metadata={"pattern_type": "MULE_OUTFLOW"},
     )
     # Feed mock inflow so rule triggers
-    orch.txn_risk_agent.policy_engine.evaluate_local = lambda inputs: type(
-        "Res",
-        (),
-        {
-            "outcome": DecisionOutcome.HOLD,
-            "tier": RiskTier.T2,
-            "evidence_ids": ["rapid_pass_through"],
-            "bundle_version": "1.0.0",
-        },
-    )()
+    orch.txn_risk_agent.policy_engine.evaluate_local = lambda input_data: PolicyEvaluationResult(
+        outcome=DecisionOutcome.HOLD,
+        tier=RiskTier.T2,
+        evidence_ids=["rapid_pass_through"],
+        bundle_version="1.0.0",
+    )
 
     state = orch.process_transaction(mule_txn)
     assert state.hitl_tier == RiskTier.T2

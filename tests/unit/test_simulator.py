@@ -47,6 +47,7 @@ def test_synthetic_adversarial_injection():
     gen = SyntheticTransactionGenerator(seed=101)
     txn = gen.generate_adversarial_injection()
     assert txn.metadata["pattern_type"] == "PROMPT_INJECTION_ATTACK"
+    assert txn.narrative is not None
     assert any(
         term in txn.narrative
         for term in ["Ignore", "Prompt Injection", "override", "Disregard", "IMPORTANT"]

@@ -55,11 +55,12 @@ def run_demo():
     )
 
     state1 = orch.process_transaction(attack_txn)
-    print(f"  Result: Sanitized & Tokenized Narrative: '{state1.tokenized_txn.narrative}'")
-    print(
-        f"  Decision Outcome: {state1.decision_record.outcome.value} (Tier: {state1.hitl_tier.value})"
-    )
-    print(f"  Audit Ledger Hash: {state1.audit_hash[:16]}... (Zero Raw PII Leaked)")
+    narrative_val = state1.tokenized_txn.narrative if state1.tokenized_txn else "N/A"
+    outcome_val = state1.decision_record.outcome.value if state1.decision_record else "N/A"
+    audit_hash_1 = state1.audit_hash[:16] if state1.audit_hash else "N/A"
+    print(f"  Result: Sanitized & Tokenized Narrative: '{narrative_val}'")
+    print(f"  Decision Outcome: {outcome_val} (Tier: {state1.hitl_tier.value})")
+    print(f"  Audit Ledger Hash: {audit_hash_1}... (Zero Raw PII Leaked)")
 
     # --------------------------------------------------------------------------
     # SCENARIO 2: Good Flow (Routine High-Value Transfer)
@@ -77,10 +78,10 @@ def run_demo():
     )
 
     state2 = orch.process_transaction(good_txn)
-    print(
-        f"  Decision Outcome: {state2.decision_record.outcome.value} (Tier: {state2.hitl_tier.value})"
-    )
-    print(f"  Automated Pass: {state2.hitl_status} (Audit Hash: {state2.audit_hash[:16]}...)")
+    outcome_val2 = state2.decision_record.outcome.value if state2.decision_record else "N/A"
+    audit_hash_2 = state2.audit_hash[:16] if state2.audit_hash else "N/A"
+    print(f"  Decision Outcome: {outcome_val2} (Tier: {state2.hitl_tier.value})")
+    print(f"  Automated Pass: {state2.hitl_status} (Audit Hash: {audit_hash_2}...)")
 
     # --------------------------------------------------------------------------
     # SCENARIO 3: Suspicious Ring (Mule Pass-Through Clustered Case)
