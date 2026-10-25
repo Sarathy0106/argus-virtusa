@@ -1,5 +1,7 @@
 package argus.kyc
 
+import rego.v1
+
 version := "1.0.0"
 
 # High-risk sanctioned countries (ISO-3)

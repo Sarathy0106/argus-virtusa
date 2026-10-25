@@ -1,5 +1,7 @@
 package argus.main
 
+import rego.v1
+
 import data.argus.aml
 import data.argus.fraud
 import data.argus.kyc
@@ -8,65 +10,21 @@ import data.argus.privacy
 bundle_version := "1.0.0"
 
 # Collect all triggered evidence IDs
-evidence[id] if {
-    aml.structuring_hit
-    id := "aml_structuring_window"
-}
+evidence contains "aml_structuring_window" if aml.structuring_hit
+evidence contains "velocity_burst" if aml.velocity_hit
+evidence contains "rapid_pass_through" if aml.rapid_pass_through_hit
+evidence contains "round_amount_smurfing" if aml.round_amount_hit
+evidence contains "dormant_account_spike" if aml.dormant_spike_hit
 
-evidence[id] if {
-    aml.velocity_hit
-    id := "velocity_burst"
-}
+evidence contains "device_hopping" if fraud.device_hopping_hit
+evidence contains "off_hours_high_value" if fraud.off_hours_hit
+evidence contains "geo_velocity_impossible" if fraud.impossible_geo_hit
 
-evidence[id] if {
-    aml.rapid_pass_through_hit
-    id := "rapid_pass_through"
-}
+evidence contains "sanctions_exact_match" if kyc.sanctions_hit
+evidence contains "high_risk_jurisdiction" if kyc.high_risk_jurisdiction_hit
+evidence contains "kyc_validity_expired" if kyc.kyc_expired_hit
 
-evidence[id] if {
-    aml.round_amount_hit
-    id := "round_amount_smurfing"
-}
-
-evidence[id] if {
-    aml.dormant_spike_hit
-    id := "dormant_account_spike"
-}
-
-evidence[id] if {
-    fraud.device_hopping_hit
-    id := "device_hopping"
-}
-
-evidence[id] if {
-    fraud.off_hours_hit
-    id := "off_hours_high_value"
-}
-
-evidence[id] if {
-    fraud.impossible_geo_hit
-    id := "geo_velocity_impossible"
-}
-
-evidence[id] if {
-    kyc.sanctions_hit
-    id := "sanctions_exact_match"
-}
-
-evidence[id] if {
-    kyc.high_risk_jurisdiction_hit
-    id := "high_risk_jurisdiction"
-}
-
-evidence[id] if {
-    kyc.kyc_expired_hit
-    id := "kyc_validity_expired"
-}
-
-evidence[id] if {
-    privacy.unauthorized_pii_hit
-    id := "privacy_unauthorized_pii_query"
-}
+evidence contains "privacy_unauthorized_pii_query" if privacy.unauthorized_pii_hit
 
 # Determine Highest-Priority Outcome and Tier
 default outcome := "ALLOW"
@@ -74,27 +32,27 @@ default tier := "T0"
 
 # T3 Blocks (Sanctions, Hostile Jurisdictions)
 outcome := "BLOCK" if {
-    evidence["sanctions_exact_match"]
+    "sanctions_exact_match" in evidence
 } else := "BLOCK" if {
-    evidence["high_risk_jurisdiction"]
+    "high_risk_jurisdiction" in evidence
 } else := "BLOCK" if {
-    evidence["geo_velocity_impossible"]
+    "geo_velocity_impossible" in evidence
 } else := "BLOCK" if {
-    evidence["privacy_unauthorized_pii_query"]
+    "privacy_unauthorized_pii_query" in evidence
 } else := "HOLD" if {
     count(evidence) > 0
 }
 
 tier := "T3" if {
-    evidence["sanctions_exact_match"]
+    "sanctions_exact_match" in evidence
 } else := "T3" if {
-    evidence["high_risk_jurisdiction"]
+    "high_risk_jurisdiction" in evidence
 } else := "T2" if {
-    evidence["rapid_pass_through"]
+    "rapid_pass_through" in evidence
 } else := "T2" if {
-    evidence["geo_velocity_impossible"]
+    "geo_velocity_impossible" in evidence
 } else := "T2" if {
-    evidence["privacy_unauthorized_pii_query"]
+    "privacy_unauthorized_pii_query" in evidence
 } else := "T1" if {
     count(evidence) > 0
 }
@@ -103,6 +61,6 @@ tier := "T3" if {
 decision := {
     "outcome": outcome,
     "tier": tier,
-    "evidence_ids": [id | evidence[id]],
+    "evidence_ids": [x | some x in evidence],
     "bundle_version": bundle_version
 }

@@ -1,5 +1,7 @@
 package argus.privacy
 
+import rego.v1
+
 version := "1.0.0"
 
 # 1. Unauthorized raw PII query attempt

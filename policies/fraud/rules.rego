@@ -1,5 +1,7 @@
 package argus.fraud
 
+import rego.v1
+
 version := "1.0.0"
 
 # 1. Device Hopping: More than 3 distinct devices within 24 hours

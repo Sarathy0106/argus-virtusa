@@ -1,5 +1,7 @@
 package argus.aml
 
+import rego.v1
+
 # Rule Bundle Version
 version := "1.0.0"
 

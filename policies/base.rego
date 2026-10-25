@@ -1,6 +1,8 @@
 package argus.base
 
-default allow = true
+import rego.v1
+
+default allow := true
 
 # Version metadata
 version := "1.0.0"
