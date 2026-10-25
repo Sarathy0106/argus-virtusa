@@ -4,7 +4,7 @@ Learns from analyst verdicts (CONFIRMED_FRAUD, FALSE_POSITIVE)
 to update procedural memory, tune rule weights, and store episodic history.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
@@ -16,7 +16,7 @@ class AnalystFeedback(BaseModel):
     verdict: str  # CONFIRMED_SUSPICIOUS, FALSE_POSITIVE, MITIGATED
     notes: str
     rules_applied: list[str]
-    submitted_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class FeedbackLoopManager:

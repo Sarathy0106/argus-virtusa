@@ -4,6 +4,13 @@ Enables instant verification of past decisions from the terminal.
 Usage: python -m services.ledger.cli replay --decision-id <ID>
 """
 
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import click
 
 from contracts.common import DecisionOutcome, RiskTier

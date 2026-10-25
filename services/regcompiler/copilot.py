@@ -4,7 +4,7 @@ Answers compliance queries strictly citing in-force regulation clauses.
 Enforces explicit abstention when evidence is insufficient or confidence is low.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -31,7 +31,7 @@ class ComplianceCopilot:
         self.verifier = verifier or EvidenceVerifier()
 
     def answer_query(self, query: str, as_of_date: datetime | None = None) -> CopilotAnswer:
-        target_date = as_of_date or datetime.now(UTC)
+        target_date = as_of_date or datetime.now(timezone.utc)
         results = self.corpus.search_as_of(query, as_of_date=target_date, top_k=3)
 
         # 1. Abstention Gate: If no relevant clauses match

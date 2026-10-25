@@ -1,6 +1,6 @@
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -34,7 +34,7 @@ class AuditEntry(BaseModel):
     signer: str = Field(..., description="Signer identity (service ID, analyst ID, or agent ID)")
     signature: str | None = Field(default=None, description="Cryptographic signature (Ed25519 hex)")
     payload: dict[str, Any] = Field(..., description="Full audit payload")
-    recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    recorded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
     def create(
@@ -48,7 +48,7 @@ class AuditEntry(BaseModel):
         recorded_at: datetime | None = None,
         seq: int | None = None,
     ) -> "AuditEntry":
-        ts = recorded_at or datetime.now(UTC)
+        ts = recorded_at or datetime.now(timezone.utc)
         payload_serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
         payload_hash = hashlib.sha256(payload_serialized.encode("utf-8")).hexdigest()
         return cls(

@@ -3,7 +3,7 @@ Page 3: Rule Studio & Reg-to-Rule Compiler.
 """
 
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import streamlit as st
@@ -110,7 +110,7 @@ with st.form("publish_form"):
                     "obligation_id": obligation_id,
                     "rule_ref": rule_name,
                     "new_bundle_version": "1.1.0",
-                    "timestamp": datetime.now(UTC).isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 },
             )
             st.success(

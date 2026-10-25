@@ -3,7 +3,7 @@ Page 2: Regulatory Compliance Copilot.
 """
 
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import streamlit as st
@@ -36,8 +36,8 @@ def get_copilot():
             title="Periodic Updation of KYC",
             clause_ref="Clause-23",
             clause_text="Regulated entities shall conduct periodic review and KYC updation every 2 years for high risk customers, 8 years for medium risk, and 10 years for low risk customers.",
-            valid_from=datetime(2024, 1, 1, tzinfo=UTC),
-            valid_to=datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC),
+            valid_from=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            valid_to=datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
         )
     )
     corpus.add_clause(
@@ -47,8 +47,8 @@ def get_copilot():
             title="Cross-Border Wire Transfers Reporting",
             clause_ref="Clause-12A",
             clause_text="All cross-border wire transfers exceeding USD 10,000 or INR 800,000 must include originator and beneficiary full legal names and account tokens.",
-            valid_from=datetime(2024, 1, 1, tzinfo=UTC),
-            valid_to=datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC),
+            valid_from=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            valid_to=datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
         )
     )
     corpus.add_clause(
@@ -58,8 +58,8 @@ def get_copilot():
             title="Video-based Customer Identification Process (V-CIP)",
             clause_ref="Clause-54",
             clause_text="Video-based Customer Identification Process is recognized as equivalent to physical face-to-face verification provided geo-tagging and liveness checks pass.",
-            valid_from=datetime(2026, 1, 1, tzinfo=UTC),
-            valid_to=datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC),
+            valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            valid_to=datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
         )
     )
     return ComplianceCopilot(corpus=corpus)
@@ -69,7 +69,7 @@ copilot = get_copilot()
 
 col_query, col_date = st.columns([3, 1])
 with col_date:
-    query_date = st.date_input("Query As-Of Date:", value=datetime.now(UTC).date())
+    query_date = st.date_input("Query As-Of Date:", value=datetime.now(timezone.utc).date())
 with col_query:
     sample_queries = [
         "What is the required frequency for periodic KYC updates for high risk customers?",
@@ -80,7 +80,7 @@ with col_query:
     query = st.selectbox("Select or type compliance question:", sample_queries)
 
 if st.button("Query Regulation Corpus", type="primary"):
-    dt = datetime.combine(query_date, datetime.min.time(), tzinfo=UTC)
+    dt = datetime.combine(query_date, datetime.min.time(), tzinfo=timezone.utc)
     res = copilot.answer_query(query, as_of_date=dt)
 
     if res.abstained:

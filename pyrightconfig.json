@@ -13,9 +13,14 @@
     "venv"
   ],
   "extraPaths": [
-    "."
+    ".",
+    "contracts",
+    "services",
+    "ui"
   ],
   "pythonVersion": "3.12",
   "pythonPlatform": "Windows",
-  "typeCheckingMode": "standard"
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none"
 }

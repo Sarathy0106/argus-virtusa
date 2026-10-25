@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -23,4 +23,4 @@ class RegulatoryObligation(BaseModel):
         ..., description="Corresponding OPA rule name (e.g. aml_structuring_window)"
     )
     severity: str = Field(default="HIGH")  # LOW, MEDIUM, HIGH, CRITICAL
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

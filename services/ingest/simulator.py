@@ -11,7 +11,7 @@ Simulates:
 import json
 import random
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from contracts.common import TransactionChannel
@@ -59,7 +59,7 @@ class SyntheticTransactionGenerator:
         self.devices = [f"<DEV_{self.rng.randint(1000, 9999):X}>" for _ in range(30)]
 
     def generate_normal_transaction(self, base_time: datetime | None = None) -> Transaction:
-        ts = base_time or datetime.now(UTC)
+        ts = base_time or datetime.now(timezone.utc)
         origin = self.rng.choice(self.accounts)
         dest = self.rng.choice([a for a in self.accounts if a != origin])
         device = self.rng.choice(self.devices)
@@ -88,7 +88,7 @@ class SyntheticTransactionGenerator:
         self, target_account: str | None = None, base_time: datetime | None = None
     ) -> list[Transaction]:
         """Generates 3-5 transactions just below the INR 50,000 threshold within a 24h window."""
-        ts = base_time or datetime.now(UTC)
+        ts = base_time or datetime.now(timezone.utc)
         dest = target_account or self.rng.choice(self.accounts)
         origin = self.rng.choice([a for a in self.accounts if a != dest])
         device = self.rng.choice(self.devices)
@@ -122,7 +122,7 @@ class SyntheticTransactionGenerator:
         self, mule_account: str | None = None, base_time: datetime | None = None
     ) -> list[Transaction]:
         """Generates an incoming large payment followed by immediate rapid outflow to multiple accounts."""
-        ts = base_time or datetime.now(UTC)
+        ts = base_time or datetime.now(timezone.utc)
         mule = mule_account or f"<MULE_{self.rng.randint(1000, 9999):X}>"
         source = self.rng.choice(self.accounts)
 
@@ -174,7 +174,7 @@ class SyntheticTransactionGenerator:
         self, victim_account: str | None = None, base_time: datetime | None = None
     ) -> Transaction:
         """Simulates an account takeover: new device, abnormal midnight hour, 15x normal volume, geo-hop."""
-        ts = base_time or datetime.now(UTC)
+        ts = base_time or datetime.now(timezone.utc)
         victim = victim_account or self.rng.choice(self.accounts)
         dest = f"<FRAUD_WALLET_{self.rng.randint(1000, 9999):X}>"
 
@@ -199,7 +199,7 @@ class SyntheticTransactionGenerator:
 
     def generate_adversarial_injection(self, base_time: datetime | None = None) -> Transaction:
         """Generates a transaction embedding prompt-injection attack payload in payment remarks."""
-        ts = base_time or datetime.now(UTC)
+        ts = base_time or datetime.now(timezone.utc)
         origin = self.rng.choice(self.accounts)
         dest = self.rng.choice([a for a in self.accounts if a != origin])
 
@@ -221,7 +221,7 @@ class SyntheticTransactionGenerator:
     def generate_dataset(self, total_count: int = 100) -> list[Transaction]:
         """Generates a balanced dataset combining normal transactions and risk/attack scenarios."""
         dataset: list[Transaction] = []
-        base_time = datetime.now(UTC) - timedelta(days=7)
+        base_time = datetime.now(timezone.utc) - timedelta(days=7)
 
         # 75% normal transactions
         normal_count = int(total_count * 0.75)

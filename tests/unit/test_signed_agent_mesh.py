@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -36,7 +36,7 @@ def test_capability_broker_dispatch_and_privacy_enforcement():
     # 1. Valid signed tokenized call passes
     clean_payload = {"account_token": "<ACCT_7F3A>", "case_id": "CASE-101"}
     msg_id = "MSG-001"
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     signable_data = {
         "message_id": msg_id,
         "case_id": "CASE-101",
@@ -93,7 +93,7 @@ def test_mcp_sanctions_tool():
     )
     broker.register_agent(card)
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     payload = {"target": "VLADIMIR_PETROV"}
     signable = {
         "message_id": "MSG-MCP",

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from contracts.common import TransactionChannel
 from contracts.transactions import Transaction
@@ -7,7 +7,7 @@ from services.cognition.clustering.clustering import AlertClusterer
 
 def test_alert_clustering_compresses_linked_transactions():
     clusterer = AlertClusterer()
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
 
     # 4 Structuring Transactions between Account A and Account B using Device DEV_1
     for i in range(4):

@@ -5,7 +5,7 @@ across policy updates. Tracks saved tokens and hit ratios.
 """
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -16,7 +16,7 @@ class CacheEntry(BaseModel):
     rule_bundle_ver: str
     response: dict[str, Any]
     tokens_saved: int
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class SemanticCache:

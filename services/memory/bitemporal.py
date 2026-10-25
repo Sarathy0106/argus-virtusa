@@ -6,7 +6,7 @@ Stores facts with dual temporal coordinates:
 Supports time-travel queries ("What did we know as of Date X?") and cryptographic shredding.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -18,7 +18,7 @@ from contracts.memory import BitemporalFact
 class TimeTravelQuery(BaseModel):
     subject: str
     as_of_valid_time: datetime
-    as_of_recorded_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    as_of_recorded_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BitemporalMemoryStore:
@@ -44,14 +44,14 @@ class BitemporalMemoryStore:
                 f"Subject '{subject}' has been cryptographically shredded under erasure policy."
             )
 
-        end_time = valid_to or datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC)
+        end_time = valid_to or datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
         fact = BitemporalFact(
             subject=subject,
             predicate=predicate,
             object=payload,
             valid_from=valid_from,
             valid_to=end_time,
-            recorded_at=datetime.now(UTC),
+            recorded_at=datetime.now(timezone.utc),
             source=source,
             classification=classification,
         )
@@ -72,7 +72,7 @@ class BitemporalMemoryStore:
         if subject in self._shredded_subjects:
             return []
 
-        rec_t = as_of_recorded_time or datetime.now(UTC)
+        rec_t = as_of_recorded_time or datetime.now(timezone.utc)
         results = []
         for fact in self._facts.get(subject, []):
             if fact.recorded_at <= rec_t and fact.valid_from <= as_of_valid_time <= fact.valid_to:
@@ -85,7 +85,10 @@ class BitemporalMemoryStore:
         if subject in self._facts:
             # Overwrite payloads with tombstones before deleting
             for f in self._facts[subject]:
-                f.object = {"tombstone": True, "shredded_at": datetime.now(UTC).isoformat()}
+                f.object = {
+                    "tombstone": True,
+                    "shredded_at": datetime.now(timezone.utc).isoformat(),
+                }
             del self._facts[subject]
 
     def is_shredded(self, subject: str) -> bool:

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -33,5 +33,5 @@ class AgentMessage(BaseModel):
     recipient_id: str = Field(..., description="Target agent_id or broker")
     skill: str = Field(..., description="Requested skill name")
     payload: dict[str, Any] = Field(..., description="Parameters (MUST CONTAIN ZERO RAW PII)")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     signature: str | None = Field(default=None, description="Ed25519 signature of message payload")

@@ -6,7 +6,7 @@ Provides hybrid keyword (BM25) and semantic retrieval with as-of-date filtering.
 
 import math
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from contracts.memory import RegulationClause
 
@@ -43,7 +43,7 @@ class RegulationCorpusIndex:
         """
         Retrieves top-k clauses using BM25 scoring filtered strictly by as_of_date valid time.
         """
-        target_date = as_of_date or datetime.now(UTC)
+        target_date = as_of_date or datetime.now(timezone.utc)
         query_tokens = tokenize_query(query)
         if not query_tokens:
             return []

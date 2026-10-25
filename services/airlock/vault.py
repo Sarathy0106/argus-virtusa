@@ -6,7 +6,7 @@ format-preserving typed token generation, and role-governed detokenization.
 
 import hashlib
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import BaseModel, Field
@@ -20,7 +20,7 @@ class VaultRecord(BaseModel):
     ciphertext: bytes
     nonce: bytes
     scope: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PIIVault:

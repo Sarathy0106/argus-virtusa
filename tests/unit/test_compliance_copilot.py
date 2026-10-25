@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from contracts.memory import RegulationClause
 from services.regcompiler.copilot import ComplianceCopilot
@@ -13,8 +13,8 @@ def test_compliance_copilot_grounded_answer():
         title="Cross-Border Outward Wire Transfers",
         clause_ref="Clause-12A",
         clause_text="All outward remittances exceeding USD 10,000 or INR 800,000 must include verified beneficiary identifiers.",
-        valid_from=datetime(2024, 1, 1, tzinfo=UTC),
-        valid_to=datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC),
+        valid_from=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        valid_to=datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
     )
     corpus.add_clause(c)
 

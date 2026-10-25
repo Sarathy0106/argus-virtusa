@@ -4,7 +4,7 @@ Compiles regulatory circular obligations into executable Rego policies,
 simulates impact on historical transaction data, and gates deployment via Maker-Checker signoff.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -162,7 +162,7 @@ class RegToRuleCompiler:
                 "impact_simulation": compilation.simulation_report.model_dump()
                 if compilation.simulation_report
                 else None,
-                "published_at": datetime.now(UTC).isoformat(),
+                "published_at": datetime.now(timezone.utc).isoformat(),
             },
         )
         return compilation

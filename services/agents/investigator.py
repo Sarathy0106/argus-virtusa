@@ -5,7 +5,7 @@ Pulls bitemporal customer profile, historical decisions, and counterparty subgra
 to assemble comprehensive case dossiers.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from contracts.agents import AgentCard, AgentSkill
@@ -68,6 +68,6 @@ class InvestigatorAgent:
                 for f in facts
             ],
             "top_risk_factors": risk_evaluation.get("top_factors", []),
-            "investigation_timestamp": datetime.now(UTC).isoformat(),
+            "investigation_timestamp": datetime.now(timezone.utc).isoformat(),
         }
         return dossier

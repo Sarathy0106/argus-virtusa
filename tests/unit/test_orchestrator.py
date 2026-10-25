@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -16,7 +16,7 @@ def test_orchestrator_routine_t0_auto_pass():
         counterparty_token="<ACCT_GOOD_02>",
         amount=1200.0,
         currency="INR",
-        timestamp=datetime.now(UTC),
+        timestamp=datetime.now(timezone.utc),
         channel=TransactionChannel.UPI,
         narrative="Groceries at supermarket",
     )
@@ -35,7 +35,7 @@ def test_orchestrator_routine_t0_auto_pass():
 
 def test_orchestrator_borderline_t1_hitl_checkpoint():
     orch = ArgusOrchestrator()
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
 
     # Ingest 2 structuring transactions first
     for i in range(2):
@@ -92,7 +92,7 @@ def test_orchestrator_t2_maker_checker_enforcement():
         account_token="<MULE_ACC>",
         counterparty_token="<CASH_OUT>",
         amount=150000.0,
-        timestamp=datetime.now(UTC),
+        timestamp=datetime.now(timezone.utc),
         channel=TransactionChannel.IMPS,
         metadata={"pattern_type": "MULE_OUTFLOW"},
     )

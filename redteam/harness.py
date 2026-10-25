@@ -8,7 +8,7 @@ Simulates:
 Validates that zero PII leaks outside the perimeter and prompt injections fail safe.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -64,7 +64,7 @@ class AdversaryHarness:
                 account_token=f"<ACCT_ATTACKER_{idx:02X}>",
                 counterparty_token="<ACCT_VICTIM_01>",
                 amount=5000.0,
-                timestamp=datetime.now(UTC),
+                timestamp=datetime.now(timezone.utc),
                 channel=TransactionChannel.UPI,
                 narrative=payload,
             )

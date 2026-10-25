@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from services.memory.bitemporal import BitemporalMemoryStore
 from services.memory.feedback import FeedbackLoopManager
@@ -6,8 +6,8 @@ from services.memory.feedback import FeedbackLoopManager
 
 def test_bitemporal_time_travel_queries():
     store = BitemporalMemoryStore()
-    t0 = datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC)
-    t1 = datetime(2025, 6, 1, 0, 0, 0, tzinfo=UTC)
+    t0 = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    t1 = datetime(2025, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
 
     # In January 2025: Customer risk category was LOW
     store.record_fact(
@@ -24,19 +24,19 @@ def test_bitemporal_time_travel_queries():
         predicate="risk_tier",
         payload={"tier": "HIGH"},
         valid_from=t1,
-        valid_to=datetime(9999, 12, 31, 23, 59, 59, tzinfo=UTC),
+        valid_to=datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
     )
 
     # Time-travel query: What was customer tier in March 2025? -> Must be LOW
     march_query = store.query_as_of(
-        "<ACCT_1001>", as_of_valid_time=datetime(2025, 3, 15, tzinfo=UTC)
+        "<ACCT_1001>", as_of_valid_time=datetime(2025, 3, 15, tzinfo=timezone.utc)
     )
     assert len(march_query) == 1
     assert march_query[0].object["tier"] == "LOW"
 
     # Time-travel query: What was customer tier in October 2025? -> Must be HIGH
     oct_query = store.query_as_of(
-        "<ACCT_1001>", as_of_valid_time=datetime(2025, 10, 15, tzinfo=UTC)
+        "<ACCT_1001>", as_of_valid_time=datetime(2025, 10, 15, tzinfo=timezone.utc)
     )
     assert len(oct_query) == 1
     assert oct_query[0].object["tier"] == "HIGH"
@@ -44,7 +44,7 @@ def test_bitemporal_time_travel_queries():
 
 def test_cryptographic_shredding_erasure():
     store = BitemporalMemoryStore()
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     store.record_fact(
         subject="<ACCT_ERASE_ME>",
         predicate="kyc_document",

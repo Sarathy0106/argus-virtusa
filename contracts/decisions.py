@@ -1,6 +1,6 @@
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -28,7 +28,7 @@ class DecisionRecord(BaseModel):
     )
     output_hash: str = Field(..., description="Deterministic hash of the decision output")
     explanation_summary: str | None = Field(default=None)
-    recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    recorded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
     def create(
@@ -68,5 +68,5 @@ class DecisionRecord(BaseModel):
             evidence_ids=evidence_ids,
             output_hash=output_h,
             explanation_summary=explanation_summary,
-            recorded_at=recorded_at or datetime.now(UTC),
+            recorded_at=recorded_at or datetime.now(timezone.utc),
         )

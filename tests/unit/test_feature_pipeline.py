@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from contracts.common import TransactionChannel
 from contracts.transactions import Transaction
@@ -7,7 +7,7 @@ from services.cognition.features.pipeline import FeaturePipeline
 
 def test_feature_pipeline_sliding_window_and_graph_hops():
     pipeline = FeaturePipeline()
-    base_time = datetime.now(UTC)
+    base_time = datetime.now(timezone.utc)
 
     # Flag an account as mule/bad
     flagged_acct = "<ACCT_FLAGGED_999>"

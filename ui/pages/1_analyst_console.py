@@ -3,7 +3,7 @@ Page 1: Analyst Console & Case Investigation Workspace.
 """
 
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import streamlit as st
@@ -35,7 +35,7 @@ orch: ArgusOrchestrator = st.session_state.orchestrator
 @st.cache_data
 def get_sample_cases():
     clusterer = AlertClusterer()
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
 
     # 1. Mule Pass-Through Case (T2)
     inflow = Transaction(
@@ -206,7 +206,7 @@ with tab_signoff:
                         "checker": checker_id,
                         "notes": analyst_notes,
                         "case_id": selected_case.case_id,
-                        "timestamp": datetime.now(UTC).isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     },
                 )
                 st.success("Case successfully recorded in cryptographic audit ledger!")

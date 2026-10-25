@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from contracts.common import TransactionChannel
 from contracts.decisions import DecisionRecord
@@ -37,7 +37,7 @@ def run_demo():
     print("=" * 80)
 
     orch = ArgusOrchestrator()
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
 
     # --------------------------------------------------------------------------
     # SCENARIO 1: Bad User Prompt-Injection & PII Exfiltration Attack

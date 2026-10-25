@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from contracts.agents import AgentCard, AgentMessage, AgentSkill
 from contracts.audit import AuditEntry
@@ -90,7 +90,7 @@ def test_audit_ledger_chaining():
 
 
 def test_bitemporal_fact_validity():
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     fact = BitemporalFact(
         subject="<ACCT_1001>",
         predicate="risk_category",
