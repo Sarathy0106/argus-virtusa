@@ -1,115 +1,101 @@
-# ARGUS — Agentic Regulatory & Risk Guard with Unified Safety
+# 🛡️ ARGUS v2 — Circular to Live Rule Engine
 
-> *"Deterministic core, probabilistic edge."*  
-> Decisions are made by versioned policy-as-code plus calibrated ML scores; LLMs explain and draft under strict PII airlocking and evidence-bound citation verification.
+> **Agentic Regulatory & Risk Guard with Unified Safety**  
+> *"Deterministic core, probabilistic edge"* · **FDS NA Use Case 2 Re-aligned**
 
 ---
 
-## 1. The Core Architecture
+## 🎯 System Overview
 
-```text
-┌───────────────────────────────── CLIENT / UI ──────────────────────────────────┐
-│  Streamlit Console | Compliance Copilot | Rule Studio | Audit & Replay Explorer│
-└──────────────────────────────────────┬─────────────────────────────────────────┘
-                                       │ HTTPS / JSON API
-┌──────────────────────────────────────▼─────────────────────────────────────────┐
-│                    API GATEWAY & CAPABILITY BROKER (FastAPI)                   │
-│  - Ed25519 Signed Agent Mesh (Txn-Risk, Sanctions, Investigator, Narrative)    │
-│  - PII Airlock: Presidio + Indian Recognizers + Format-Preserving Vault        │
-└──────────────┬─────────────────────────────────────────────────┬───────────────┘
-               │                                                 │
-┌──────────────▼──────────────┐                   ┌──────────────▼───────────────┐
-│  POLICY ENGINE (OPA / Rego) │                   │      COGNITION & ML LAYER    │
-│  - Versioned Git Bundles    │                   │  - Calibrated LightGBM Scorer│
-│  - AML, Fraud, Sanctions    │                   │  - TreeSHAP Feature Attrib   │
-│  - Bit-for-bit Determinism  │                   │  - Evidence Verifier Gate    │
-└──────────────┬──────────────┘                   └──────────────┬───────────────┘
-               │                                                 │
-┌──────────────▼─────────────────────────────────────────────────▼───────────────┐
-│                      DATA, BITEMPORAL MEMORY & AUDIT LEDGER                    │
-│  - PostgreSQL 16 + pgvector | Redis Cache | SHA-256 Hash-Chained Audit Ledger  │
-└────────────────────────────────────────────────────────────────────────────────┘
+ARGUS v2 pivots from generic case triage to an autonomous, 10-stage regulatory translation and deployment pipeline: **"Circular in, safe rule out"**. 
+
+It autonomously ingests regulatory circulars (e.g., RBI, OCC, FINRA), evaluates their applicability against specific **Bank Profiles**, identifies **Gaps, Overlaps, and Conflicts** against internal policies, drafts human-readable **Rule DSL (YAML)**, compiles directly to **Open Policy Agent (OPA) Rego**, backtests in an isolated sandbox over **100,000 historical transactions**, subjects candidate rules to an **independent Validator Gate & Objection Loop**, enforces **Maker-Checker Dual Governance with Ed25519 Cryptographic Signatures**, executes non-enforcing **Shadow Evaluation**, and runs canary rollouts with **sub-second automated rollbacks (<500ms)** upon metric breach.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                ARGUS v2 10-STAGE REGULATORY PIPELINE                                  │
+├───────────────┬──────────────────────────┬─────────────────────────┬───────────────────┬───────────────┤
+│ Stage 1       │ Stage 2                  │ Stage 3                 │ Stage 4           │ Stage 5 & 6   │
+│ Circular      │ Obligation Extraction    │ Policy Mapping          │ Rule Authoring    │ Backtest &    │
+│ Intake        │ & Bank Applicability     │ (Gaps & Conflicts)      │ (YAML DSL & Rego) │ Impact Ops    │
+├───────────────┼──────────────────────────┼─────────────────────────┼───────────────────┼───────────────┤
+│ Stage 7       │ Stage 8                  │ Stage 9                 │ Stage 10          │ Audit         │
+│ Validator     │ Governance Approvals     │ Shadow Mode             │ Canary Ramp &     │ SHA-256 Chain │
+│ Objection Loop│ (Maker-Checker, Ed25519) │ Non-Enforcing           │ Auto-Rollback     │ Replay Proof  │
+└───────────────┴──────────────────────────┴─────────────────────────┴───────────────────┴───────────────┘
 ```
 
 ---
 
-## 2. Key Innovations
+## ⚡ Quick Start: Streamlit Console & FastAPI Gateway
 
-| # | Innovation | What it solves | Implementation |
+### 1. Prerequisites
+- Python 3.11+
+- Virtualenv activated
+
+### 2. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Run FastAPI Gateway (Background Daemon)
+```bash
+python -m uvicorn services.gateway.main:app --port 8001
+```
+
+### 4. Run ARGUS Multi-Page Streamlit Console
+```bash
+python -m streamlit run ui/app.py --server.port 8501
+```
+
+Open **http://localhost:8501** in your browser.
+
+---
+
+## 🧭 Multi-Page Console Structure
+
+| Page | URL Path | Regulatory Stage | Description |
 |---|---|---|---|
-| 1 | **Deterministic Replay** | AI hallucinations & regulatory audit failure | Decisions stored with `input_hash` and `output_hash`. Replay engine confirms 100% bit-for-bit identity. |
-| 2 | **PII Airlock** | PII leak risk into LLMs | Presidio + Indian recognizers (PAN, Aadhaar, IFSC, UPI) tokenizes data with AES-256-GCM. Strict egress gate terminates raw leaks. |
-| 3 | **Evidence-Bound Explanations** | LLM hallucinations | Every narrative statement must cite `[EVID:<ID>]` or `[CLAUSE:<ID>]`. Uncited claims trigger deterministic template fallback. |
-| 4 | **Bitemporal Memory** | Compliance time lag & lost context | Facts stored with `valid_from`, `valid_to` and `recorded_at` for "as-of-date" time travel and right-to-erase compliance. |
-| 5 | **Signed Agent Mesh** | Multi-agent impersonation | Ed25519 cryptographic signatures on every A2A call behind a capability broker with tokens-only data boundaries. |
-| 6 | **Alert Compression** | AML analyst alert fatigue | Graph-linked alerts (NetworkX) clustered into unified multi-transaction Cases (60% alert volume reduction). |
-| 7 | **Cost Router** | Expensive LLM inference costs | Cascade: Cache $\to$ OPA Rules $\to$ LightGBM $\to$ Local LLM with per-customer daily token ceilings. |
-| 8 | **Reg-to-Rule Compiler** | Regulation implementation lag | Ingests circulars, synthesizes Rego code + tests, simulates historical impact, and publishes via Maker-Checker. |
+| **Hub** | `ui/app.py` | Global Overview | Bank profile switcher, 10-stage visual stepper, live telemetry KPIs |
+| **1. Circular Inbox** | `ui/pages/1_circular_inbox.py` | Stage 1 | Regulatory circular intake, Docling/Marker clause extraction, PII Airlock |
+| **2. Obligation Map** | `ui/pages/2_obligation_map.py` | Stage 2 | Clause obligations mapped to Bank Profile (Apex SCB vs. FinZap Payments Bank) |
+| **3. Policy Mapping** | `ui/pages/3_policy_mapping.py` | Stage 3 | Internal policy cross-reference: Gap detection and Conflict detection |
+| **4. Rule Studio** | `ui/pages/4_rule_studio.py` | Stage 4 | YAML Rule DSL authoring, OPA Rego compilation, unit tests, draft-only lock |
+| **5. Backtest & Impact** | `ui/pages/5_backtest_impact.py` | Stages 5 & 6 | Sandbox replay over 100k transactions, volume delta & ops capacity analysis |
+| **6. Validator Loop** | `ui/pages/6_validator_objection_loop.py`| Stage 7 | Independent Validator Gate: catches retail conflict on Iter 1, approves on Iter 2 |
+| **7. Governance** | `ui/pages/7_governance_approvals.py` | Stage 8 | Maker-Checker dual human signoff with Ed25519 cryptographic signatures |
+| **8. Rollout & Monitor**| `ui/pages/8_rollout_monitor.py` | Stages 9 & 10 | Shadow traffic evaluation, canary ramp, interactive sub-second auto-rollback |
+| **9. Audit Explorer** | `ui/pages/9_audit_explorer.py` | Verification | SHA-256 Merkle chain verification & bit-for-bit deterministic replay engine |
 
 ---
 
-## 3. Quickstart & Walkthrough
+## ⏱️ Recommended 5-Minute Live Demo Script (Section 13)
 
-### Prerequisites
-- Python 3.12+
-- Docker & Docker Compose (optional for full containerized stack)
-
-### 1. Bootstrap Environment
-```bash
-# Auto-generate cryptographically secure keys (Vault AES-256, JWT, Tokenizer Salt)
-python scripts/bootstrap_env.py
-```
-
-### 2. Run All Unit & Adversarial Tests
-```bash
-python -m pytest tests/unit/
-```
-*Executes all 53 unit, policy, replay, and red-team tests.*
-
-### 3. Run the End-to-End Walkthrough Demo
-```bash
-python scripts/demo.py
-```
-*Walks through the complete 6-stage demo:*
-1. Prompt injection attack blocked.
-2. Routine transfer auto-approved.
-3. Structuring & mule ring clustered into 1 unified case.
-4. Bitemporal memory time-travel query.
-5. Ingest circular $\to$ compile Rego $\to$ simulate historical impact.
-6. Bit-for-bit replay hash verification.
-
-### 4. Launch the Interactive Analyst Console
-```bash
-python -m streamlit run ui/app.py
-```
-*Opens the 5-page console:*
-- **Page 1:** Analyst Case Queue & Maker-Checker Signoff
-- **Page 2:** Regulatory Compliance Copilot with As-Of Date filtering
-- **Page 3:** Rule Studio & Historical Impact Simulator
-- **Page 4:** Hash-Chained Audit Ledger & Replay Explorer
-- **Page 5:** Cost Router & Token Telemetry Dashboard
+1. **Minute 1 — Bank Profile Applicability (Stage 1 & 2)**:
+   - Select RBI Wire Transfer Circular (`RBI/2026/04/MD-WIRE`) in **1. Circular Inbox**.
+   - Navigate to **2. Obligation Map**. Switch Bank Profile to `BANK-FINZAP-02` (Payments Bank) to demonstrate how ARGUS autonomously suppresses rule generation (`NOT_APPLICABLE`) because Payments Banks lack AD-Cat 1 Forex licenses. Switch back to `BANK-APEX-01` (`APPLICABLE`).
+2. **Minute 2 — Policy Mapping & Conflict Detection (Stage 3)**:
+   - In **3. Policy Mapping**, show how Clause 4.2 maps to internal policies, revealing both a statutory coverage **Gap** against `POL-WIRE-INTL-01` and a **Conflict** against the retail daily transfer limit `POL-LIMITS-RETAIL-04` (₹500,000 ceiling).
+3. **Minute 3 — YAML DSL, Rego & Backtest Sandbox (Stages 4, 5 & 6)**:
+   - In **4. Rule Studio**, view the auto-generated YAML Rule DSL and compiled OPA Rego with 100% test pass rate.
+   - In **5. Backtest & Impact**, inspect the sandbox replay over 100,000 transactions showing a 14.5 hr/mo ops load delta absorbable by existing surplus capacity.
+4. **Minute 3.5 — Validation Gate & Objection Loop (Stage 7)**:
+   - In **6. Validator & Objection Loop**, run Iteration 1 to demonstrate the Validator catching the unscoped retail conflict. Click **'Resolve Objection & Re-author Scoped Rule'** to see Iteration 2 inject `account_category: ['CORPORATE', 'AD_CAT1']` and achieve green approval.
+5. **Minutes 4 to 5 — Dual Signoff, Canary & Sub-Second Rollback (Stages 8, 9 & 10)**:
+   - In **7. Governance Approvals**, sign the candidate rule with dual Maker and Checker keys.
+   - In **8. Rollout & Monitor**, witness the live 10% canary traffic stream with 0.00% shadow discrepancy. Click **'Simulate Metric Anomaly & Trigger Rollback'** to see the system autonomously revert from `v1.1.0-canary` back to `v1.0.0` in **480 milliseconds**.
+   - Finally, in **9. Audit Explorer**, run **'Verify Entire Hash Chain Integrity'** to mathematically prove zero tampering across all 8 forward-chained SHA-256 blocks.
 
 ---
 
-## 4. Phase-by-Phase Implementation Status
+## 🧪 Automated Testing
 
-- ✅ **Phase 0: Foundations & Reproducible Environment** (Contracts, Docker stack, Simulator, ADR-001, Threat Model)
-- ✅ **Phase 1: Privacy Airlock, Policy Engine & Deterministic Replay** (Presidio + Indian PII, 12 OPA rules, Hash-chained ledger)
-- ✅ **Phase 2: Risk Intelligence, ML Scoring & Cost Router** (Feature pipeline, LightGBM, Semantic cache, Alert clustering)
-- ✅ **Phase 3: Bitemporal Memory, Signed Agent Mesh & LangGraph Orchestration** (Bitemporal store, Ed25519 mesh, Verifier, HITL)
-- ✅ **Phase 4: Regulatory Copilot & Reg-to-Rule Compiler** (Corpus indexing, BM25 temporal search, Rego compiler, Simulator)
-- ✅ **Phase 5: Analyst Console UI, Adversarial Red-Teaming & Hardening** (Streamlit multipage UI, Red-team harness, 53 tests)
+Run the comprehensive pytest suite verifying all 10 stages:
 
----
+```bash
+# Run v2 regulatory pipeline tests
+python -m pytest tests/test_v2_circular_engine.py -v
 
-## 5. Verification & Acceptance Metrics
-
-| Metric | Target | Actual Verified Result | Status |
-|---|---|---|---|
-| **PII Leakage across corpus** | 0 | **0 leaks** | PASSED ✅ |
-| **Decision Replay Determinism** | 100% | **100% bitwise hash match** | PASSED ✅ |
-| **Citation Validity** | $\ge 98\%$ | **100% (Non-cited claims abstain)** | PASSED ✅ |
-| **Alert Volume Reduction** | 40–60% | **60% alert reduction (5 $\to$ 2 cases)** | PASSED ✅ |
-| **Prompt-Injection Block Rate** | $\ge 95\%$ | **100% fail-safe neutralized** | PASSED ✅ |
-| **T0 Decision Latency** | $< 300\text{ ms}$ | **$< 50\text{ ms}$** | PASSED ✅ |
-| **Test Suite Passing** | 100% | **53 / 53 unit tests passing** | PASSED ✅ |
+# Run entire repository test suite (all 64 unit tests)
+python -m pytest tests/ -q
+```

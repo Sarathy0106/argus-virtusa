@@ -207,3 +207,51 @@ def get_audit_ledger():
         "integrity_verified": orchestrator.audit_ledger.verify_integrity(),
         "blocks": entries
     }
+
+
+# ===========================================================================
+# ARGUS v2 — Circular to Live Rule Engine Endpoints
+# ===========================================================================
+from ui.data.seed_v2 import BANK_PROFILES, CIRCULARS, SAMPLE_PIPELINE_CASE
+from services.agents.v2_agents import (
+    IntakeAgent, ObligationAgent, PolicyMapperAgent, RuleAuthorAgent,
+    BacktestAgent, ValidatorAgent, DeploymentAndMonitorAgent
+)
+
+v2_intake = IntakeAgent()
+v2_obligation = ObligationAgent()
+v2_policy_mapper = PolicyMapperAgent()
+v2_rule_author = RuleAuthorAgent()
+v2_backtest = BacktestAgent()
+v2_validator = ValidatorAgent()
+v2_deploy = DeploymentAndMonitorAgent()
+
+
+@app.get("/api/v2/bank-profiles", tags=["ARGUS v2 — Pipeline"])
+def get_v2_bank_profiles():
+    """Returns available bank profiles for applicability filtering."""
+    return BANK_PROFILES
+
+
+@app.get("/api/v2/circulars", tags=["ARGUS v2 — Pipeline"])
+def get_v2_circulars():
+    """Returns ingested regulatory circulars with extracted clauses."""
+    return CIRCULARS
+
+
+@app.get("/api/v2/pipeline-state", tags=["ARGUS v2 — Pipeline"])
+def get_v2_pipeline_state():
+    """Returns pre-computed pipeline state and telemetry."""
+    return SAMPLE_PIPELINE_CASE
+
+
+@app.post("/api/v2/deploy/rollback", tags=["ARGUS v2 — Pipeline"])
+def trigger_v2_rollback():
+    """Executes sub-second emergency rollback from canary to stable baseline."""
+    res = v2_deploy.trigger_auto_rollback(
+        rule_id="RULE-2026-WIRE-C12A",
+        reason="SLO Breach: False Positive Spike > 5.0% on Canary",
+    )
+    return res
+
+
