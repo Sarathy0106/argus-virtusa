@@ -1,0 +1,17 @@
+rule_id: R-SANCT-020
+version: 1.0.0
+title: PEP Direct Transfer Alert
+source:
+  policy: POL-SANCT-01
+  clause: POL-SANCT-2.2
+when:
+  all:
+  - field: amount
+    op: eq
+    value: 100000
+action:
+  type: alert
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

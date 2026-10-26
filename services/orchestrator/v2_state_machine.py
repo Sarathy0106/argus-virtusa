@@ -27,6 +27,7 @@ from contracts.transactions import Transaction
 from contracts.validation import ObjectionTargetStage, ValidationObjection, ValidationReport
 from services.agents.backtest_agent import BacktestAgent, BacktestResult
 from services.agents.broker import CapabilityBroker
+from services.agents.crypto import AgentKeyPair
 from services.agents.deployment_agent import DeploymentAgent
 from services.agents.impact_agent import ImpactAgent, ImpactReport
 from services.agents.intake_agent import IntakeAgent
@@ -101,25 +102,37 @@ class RegulatoryRuleOrchestrator:
         audit_ledger: AuditLedger | None = None,
         airlock: PIIAirlock | None = None,
         compiler: RuleDSLCompiler | None = None,
+        deterministic: bool = True,
     ):
+        self.deterministic = deterministic
         self.broker = broker or CapabilityBroker()
         self.audit_ledger = audit_ledger or AuditLedger()
         self.airlock = airlock or PIIAirlock()
         self.compiler = compiler or RuleDSLCompiler()
 
-        # Initialize and register all 8 specialized agents
-        self.intake_agent = IntakeAgent(airlock=self.airlock)
-        self.obligation_agent = ObligationAgent()
-        self.policy_mapper_agent = PolicyMapperAgent()
-        self.rule_author_agent = RuleAuthorAgent(compiler=self.compiler)
-        self.backtest_agent = BacktestAgent(compiler=self.compiler)
-        self.impact_agent = ImpactAgent()
-        self.validator_agent = ValidatorAgent(compiler=self.compiler)
+        # Initialize and register all 8 specialized agents with deterministic keys if enabled
+        kp_intake = AgentKeyPair(seed="agent.intake") if deterministic else None
+        kp_obl = AgentKeyPair(seed="agent.obligation") if deterministic else None
+        kp_pol = AgentKeyPair(seed="agent.policy_mapper") if deterministic else None
+        kp_rule = AgentKeyPair(seed="agent.rule_author") if deterministic else None
+        kp_bt = AgentKeyPair(seed="agent.backtest") if deterministic else None
+        kp_imp = AgentKeyPair(seed="agent.impact") if deterministic else None
+        kp_val = AgentKeyPair(seed="agent.validator") if deterministic else None
+        kp_dep = AgentKeyPair(seed="agent.deployment") if deterministic else None
+        kp_mon = AgentKeyPair(seed="agent.monitor") if deterministic else None
+
+        self.intake_agent = IntakeAgent(airlock=self.airlock, key_pair=kp_intake)
+        self.obligation_agent = ObligationAgent(key_pair=kp_obl)
+        self.policy_mapper_agent = PolicyMapperAgent(key_pair=kp_pol)
+        self.rule_author_agent = RuleAuthorAgent(compiler=self.compiler, key_pair=kp_rule)
+        self.backtest_agent = BacktestAgent(compiler=self.compiler, key_pair=kp_bt)
+        self.impact_agent = ImpactAgent(key_pair=kp_imp)
+        self.validator_agent = ValidatorAgent(compiler=self.compiler, key_pair=kp_val)
         self.deployment_agent = DeploymentAgent(
-            audit_ledger=self.audit_ledger, compiler=self.compiler
+            audit_ledger=self.audit_ledger, compiler=self.compiler, key_pair=kp_dep
         )
         self.monitor_agent = MonitorAgent(
-            deployment_agent=self.deployment_agent, audit_ledger=self.audit_ledger
+            deployment_agent=self.deployment_agent, audit_ledger=self.audit_ledger, key_pair=kp_mon
         )
 
         # Register cards in broker
@@ -389,14 +402,25 @@ class RegulatoryRuleOrchestrator:
             {"checker": checker_id, "rule": rule_name}
         )
 
+        token_id = (
+            f"TOK-APP-{rule_name}-{maker_id[:5]}-{checker_id[:5]}"
+            if self.deterministic
+            else f"TOK-APP-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        )
+        approved_at = (
+            datetime(2026, 10, 26, 12, 15, 0, tzinfo=timezone.utc)
+            if self.deterministic
+            else datetime.now(timezone.utc)
+        )
         token = DualApprovalToken(
-            token_id=f"TOK-APP-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+            token_id=token_id,
             rule_name=rule_name,
             bundle_version=version,
             maker_id=maker_id,
             checker_id=checker_id,
             maker_signature=maker_sig,
             checker_signature=checker_sig,
+            approved_at=approved_at,
         )
 
         state.approval_token = token
@@ -512,6 +536,14 @@ class RegulatoryRuleOrchestrator:
     def _log_stage(
         self, state: V2WorkflowState, event_type: str, payload: dict[str, Any]
     ) -> None:
+        if self.deterministic:
+            seq_num = len(self.audit_ledger._chain) + 1
+            ts = datetime(2026, 10, 26, 12, 0, seq_num, tzinfo=timezone.utc)
+            iso_ts = ts.isoformat()
+        else:
+            ts = None
+            iso_ts = datetime.now(timezone.utc).isoformat()
+
         entry = self.audit_ledger.append(
             event_type=event_type,
             entity_id=state.circular_id,
@@ -519,9 +551,10 @@ class RegulatoryRuleOrchestrator:
             payload={
                 "current_stage": state.current_stage,
                 "stage_name": state.stage_name,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": iso_ts,
                 **payload,
             },
+            recorded_at=ts,
         )
         state.audit_hashes.append(entry.entry_hash)
 

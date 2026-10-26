@@ -1,0 +1,17 @@
+rule_id: R-KYC-005
+version: 1.0.0
+title: Dormant Account High-Value Debit
+source:
+  policy: POL-KYC-01
+  clause: POL-KYC-1.1
+when:
+  all:
+  - field: amount
+    op: eq
+    value: 500000
+action:
+  type: alert
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

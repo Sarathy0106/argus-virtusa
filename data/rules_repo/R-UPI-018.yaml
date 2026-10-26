@@ -1,0 +1,17 @@
+rule_id: R-UPI-018
+version: 1.0.0
+title: Merchant Gaming MCC Limit Baseline
+source:
+  policy: POL-UPI-01
+  clause: POL-UPI-2.2
+when:
+  all:
+  - field: mcc
+    op: eq
+    value: '7995'
+action:
+  type: alert
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

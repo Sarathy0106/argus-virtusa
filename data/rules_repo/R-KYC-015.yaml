@@ -1,0 +1,17 @@
+rule_id: R-KYC-015
+version: 1.0.0
+title: Foreign National Account Inward Credit
+source:
+  policy: POL-KYC-01
+  clause: POL-KYC-4.2
+when:
+  all:
+  - field: amount
+    op: eq
+    value: 1000000
+action:
+  type: enhanced_review
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

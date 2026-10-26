@@ -151,7 +151,12 @@ class ValidatorAgent:
             and len(objections) == 0
         )
 
-        certificate_id = f"CERT-VAL-{uuid.uuid4().hex[:12].upper()}" if overall_passed else None
+        import hashlib
+        certificate_id = (
+            f"CERT-VAL-{hashlib.sha256(f'{rule_def.rule_name}-{iteration}'.encode()).hexdigest()[:12].upper()}"
+            if overall_passed
+            else None
+        )
 
         return ValidationReport(
             rule_name=rule_def.rule_name,

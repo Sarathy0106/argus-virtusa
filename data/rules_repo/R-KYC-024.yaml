@@ -1,0 +1,17 @@
+rule_id: R-KYC-024
+version: 1.0.0
+title: High-Risk Band C Annual Re-KYC Lockout
+source:
+  policy: POL-KYC-01
+  clause: POL-KYC-2.3
+when:
+  all:
+  - field: risk_band
+    op: eq
+    value: C
+action:
+  type: alert
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

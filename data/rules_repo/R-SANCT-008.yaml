@@ -1,0 +1,17 @@
+rule_id: R-SANCT-008
+version: 1.0.0
+title: High Risk Country Wire Filter
+source:
+  policy: POL-SANCT-01
+  clause: POL-SANCT-1.1
+when:
+  all:
+  - field: country
+    op: eq
+    value: IR
+action:
+  type: block
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

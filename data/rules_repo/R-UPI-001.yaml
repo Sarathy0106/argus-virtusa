@@ -1,0 +1,20 @@
+rule_id: R-UPI-001
+version: 2.1.0
+title: Default UPI Per-Transaction Limit
+source:
+  policy: POL-UPI-01
+  clause: POL-UPI-2.2
+when:
+  all:
+  - field: channel
+    op: eq
+    value: UPI
+  - field: amount
+    op: gt
+    value: 100000
+action:
+  type: step_up_auth
+  factor: BIOMETRIC
+effective:
+  from: '2024-06-01'
+status: ACTIVE

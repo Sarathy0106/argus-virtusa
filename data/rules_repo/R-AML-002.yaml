@@ -1,0 +1,23 @@
+rule_id: R-AML-002
+version: 1.0.0
+title: Cash Structuring Flag Near 50k
+source:
+  policy: POL-AML-01
+  clause: POL-AML-2.4
+when:
+  all:
+  - field: is_cash
+    op: eq
+    value: true
+  - field: amount
+    op: gte
+    value: 49000
+  - field: amount
+    op: lt
+    value: 50000
+action:
+  type: alert
+  queue: aml_structuring_l1
+effective:
+  from: '2023-11-01'
+status: ACTIVE

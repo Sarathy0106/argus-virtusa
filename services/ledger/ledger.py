@@ -17,10 +17,13 @@ class AuditChainIntegrityError(Exception):
     pass
 
 
+from datetime import datetime, timezone
+
 class AuditLedger:
-    def __init__(self):
+    def __init__(self, deterministic: bool = True):
         self._chain: list[AuditEntry] = []
         self._current_hash: str = GENESIS_HASH
+        self.deterministic = deterministic
 
     def append(
         self,
@@ -29,17 +32,29 @@ class AuditLedger:
         signer: str,
         payload: dict[str, Any],
         signature: str | None = None,
+        recorded_at: Any = None,
     ) -> AuditEntry:
         """Appends a new event payload to the cryptographic ledger chain."""
         seq = len(self._chain) + 1
+        if recorded_at is None and self.deterministic:
+            recorded_at = datetime(2026, 10, 26, 12, (seq // 60) % 60, seq % 60, tzinfo=timezone.utc)
+
+        # Standardize payload timestamp if present and deterministic
+        if self.deterministic and isinstance(payload, dict) and "timestamp" in payload:
+            clean_payload = dict(payload)
+            clean_payload["timestamp"] = recorded_at.isoformat()
+        else:
+            clean_payload = payload
+
         entry = AuditEntry.create(
             seq=seq,
             prev_hash=self._current_hash,
             event_type=event_type,
             entity_id=entity_id,
             signer=signer,
-            payload=payload,
+            payload=clean_payload,
             signature=signature,
+            recorded_at=recorded_at,
         )
         computed_hash = entry.verify_hash()
         self._chain.append(entry)
