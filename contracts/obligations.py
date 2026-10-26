@@ -1,7 +1,15 @@
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+
+class ApplicabilityStatus(str, Enum):
+    PENDING = "PENDING"
+    APPLICABLE = "APPLICABLE"
+    NOT_APPLICABLE = "NOT_APPLICABLE"
+    CONDITIONAL = "CONDITIONAL"
 
 
 class RegulatoryObligation(BaseModel):
@@ -23,4 +31,19 @@ class RegulatoryObligation(BaseModel):
         ..., description="Corresponding OPA rule name (e.g. aml_structuring_window)"
     )
     severity: str = Field(default="HIGH")  # LOW, MEDIUM, HIGH, CRITICAL
+    circular_id: str | None = Field(default=None, description="Source circular reference ID")
+    deadline: str | None = Field(default=None, description="Regulatory compliance deadline")
+    applicability_status: ApplicabilityStatus = Field(
+        default=ApplicabilityStatus.PENDING,
+        description="Applicability verdict for target bank profile",
+    )
+    applicability_rationale: str | None = Field(
+        default=None, description="Explanation for applicability verdict"
+    )
+    target_products: list[str] = Field(
+        default_factory=list, description="Products impacted (e.g. UPI, RTGS)"
+    )
+    citations: list[str] = Field(
+        default_factory=list, description="Direct clause citations e.g. [CLAUSE:RBI-2024-C01]"
+    )
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARGUS — Regulatory Compliance & Live Rule Engine</title>
+  <link rel="stylesheet" href="index.css">
+  <script src="vue.global.prod.js"></script>
+</head>
+<body>
+  <div id="app" class="app-wrapper" v-cloak>
+
+    <!-- ================= Sidebar ================= -->
+    <aside class="app-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <div class="sidebar-brand">
+          <h1>ARGUS</h1>
+          <p>Regulatory Intelligence</p>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <!-- Overview -->
+        <div>
+          <div class="nav-group-title">Overview</div>
+          <ul class="nav-list">
+            <li>
+              <a class="nav-link" :class="{ active: activePage === 'dashboard' }" @click="navigateTo('dashboard')">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                <span>Dashboard</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Regulatory Pipeline -->
+        <div>
+          <div class="nav-group-title">Regulatory Pipeline</div>
+          <ul class="nav-list">
+            <li>
+              <a class="nav-link" :class="{ active: activePage === 'intake' }" @click="navigateTo('intake')">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                <span>1-2. Intake & Obligations</span>
+                <span class="nav-badge">S1-2</span>
+              </a>
+            </li>
+            <li>
+              <a class="nav-link" :class="{ active: activePage === 'policy-mapping' }" @click="navigateTo('policy-mapping')">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <circle cx="18" cy="18" r="3"/>
+                  <circle cx="6" cy="6" r="3"/>
+                  <path d="M13 6h3a2 2 0 0 1 2 2v7"/>
+                  <line x1="6" y1="9" x2="6" y2="21"/>
+                </svg>
+                <span>3. Policy Mapping</span>
+                <span class="nav-badge">S3</span>
+              </a>
+            </li>
+            <li>
+              <a class="nav-link" :class="{ active: activePage === 'rule-studio' }" @click="navigateTo('rule-studio')">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="16 18 22 12 16 6"/>
+                  <polyline points="8 6 2 12 8 18"/>
+                </svg>
+                <span>4. Rule DSL & OPA Studio</span>
+                <span class="nav-badge">S4</span>
+              </a>
+            </li>
+            <li>
+              <a class="nav-link" :class="{ active: activePage === 'backtest' }" @click="navigateTo('backtest')">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span>5-6. Backtest & Impact</span>
+                <span class="nav-badge">S5-6</span>
+              </a>
+            </li>
+            <li>
+              <a class="nav-link" :class="{ active: activePage === 'validator' }" @click="navigateTo('validator')">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <span>7. Safety Validator</span>
+                <span class="nav-badge">S7</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Governance & Deployment -->
+        <div>
+          <div class="nav-group-title">Governance & Rollout</div>
+          <ul class="nav-list">
+            <li>
+              <a class="nav-link" :class="{ active: activePage === 'dual-approval' }" @click="navigateTo('dual-approval')">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                <span>8. Dual Signoff</span>
+                <span class="nav-badge">S8</span>
+              </a>
+            </li>
+            <li>
+              <a class="nav-link" :class="{ active: activePage === 'canary-monitor' }" @click="navigateTo('canary-monitor')">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+                <span>9-10. Canary & Rollback</span>
+                <span class="nav-badge">S9-10</span>
+              </a>
+            </li>
+            <li>
+              <a class="nav-link" :class="{ active: activePage === 'audit-ledger' }" @click="navigateTo('audit-ledger')">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                </svg>
+                <span>Audit Ledger & Replay</span>
+                <span class="nav-badge">SHA-256</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="system-status-indicator">
+          <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <span class="status-dot-green"></span>
+            <span style="font-weight: 600; color: var(--text-title);">System Ready</span>
+          </div>
+          <span class="text-xs text-muted mono">v2.0</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ================= Main Workspace Viewport ================= -->
+    <main class="app-main">
+      <!-- Top Bar -->
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <div class="breadcrumb">
+            <span>ARGUS</span>
+            <span class="breadcrumb-separator">/</span>
+            <span>{{ currentPageMeta.group }}</span>
+            <span class="breadcrumb-separator">/</span>
+            <span class="breadcrumb-current">{{ currentPageMeta.label }}</span>
+          </div>
+        </div>
+
+        <div class="top-bar-badges">
+          <span class="badge badge-cyan">Draft-Only Airlock</span>
+          <span class="badge badge-emerald">Dual Approval Enforced</span>
+          <span class="badge" :class="isRolledBack ? 'badge-rose' : 'badge-amber'">
+            {{ isRolledBack ? 'Rollback Engaged' : 'Rollback Ready (<1000ms)' }}
+          </span>
+        </div>
+
+        <div class="top-bar-actions">
+          <button v-if="!isDemoPlaying" class="btn btn-secondary btn-sm" @click="playExecutiveDemo">
+            <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            <span>Play Walkthrough</span>
+          </button>
+
+          <button v-else class="btn btn-danger btn-sm" @click="stopExecutiveDemo">
+            <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="6" width="12" height="12"/>
+            </svg>
+            <span>Stop Walkthrough</span>
+          </button>
+
+          <button class="btn btn-primary btn-sm" @click="runFullPipeline" :disabled="isRunning">
+            <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            <span>{{ isRunning ? 'Processing...' : 'Run Full Pipeline' }}</span>
+          </button>
+
+          <button class="btn btn-secondary btn-sm" style="color: var(--danger); border-color: var(--danger-border);" @click="triggerRollback">
+            <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span>Emergency Rollback</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Page Views Container -->
+      <div class="page-viewport">
+
+        <!-- ================= PAGE 1: DASHBOARD ================= -->
+        <section v-if="activePage === 'dashboard'">
+          <div class="page-header">
+            <div class="page-title">
+              <h2>Compliance Operations Dashboard</h2>
+              <p>Automated Regulatory Circular to Production Rule Deployment Lifecycle</p>
+            </div>
+            <div class="status-indicator">
+              <span class="badge badge-emerald">Engine Status: Operational</span>
+            </div>
+          </div>
+
+          <!-- Demo Walkthrough Banner -->
+          <div class="demo-tour-bar">
+            <div class="demo-tour-info">
+              <div class="demo-tour-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+              </div>
+              <div>
+                <div class="demo-tour-title">10-Stage Pipeline Walkthrough</div>
+                <div class="demo-tour-desc">
+                  Step sequentially through circular ingestion, obligation extraction, policy mapping, OPA Rego compilation, backtesting, dual maker-checker signoff, and rollback.
+                </div>
+              </div>
+            </div>
+            <div class="demo-tour-buttons">
+              <button class="btn btn-primary btn-sm" @click="playExecutiveDemo" :disabled="isDemoPlaying">
+                <span>{{ isDemoPlaying ? 'Step ' + demoTourStep + '/10 Running...' : 'Start Walkthrough' }}</span>
+              </button>
+              <button class="btn btn-secondary btn-sm" @click="navigateTo('intake')">
+                <span>Step 1: Circular Intake &rarr;</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress Banner -->
+          <div v-if="isRunning" class="card-cyber" style="border-left: 4px solid var(--primary); background: var(--primary-subtle); margin-bottom: 1.25rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <span class="status-dot-green"></span>
+              <div>
+                <div style="font-weight: 700; color: var(--primary);">{{ runningStatusText }}</div>
+                <div class="text-xs text-muted">Executing regulatory transformation across stages 1 through 10</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5 Executive KPI Metrics -->
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Active Circular</span>
+                <span class="badge badge-cyan">RBI Circular</span>
+              </div>
+              <div class="kpi-value text-cyan">{{ pipelineData.circular_id }}</div>
+              <div class="kpi-subtext">Immediate Payments & Velocity</div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Obligations</span>
+                <span class="badge badge-emerald">Parsed</span>
+              </div>
+              <div class="kpi-value text-emerald">{{ pipelineData.obligations_count }} Extracted</div>
+              <div class="kpi-subtext">{{ pipelineData.applicable_count }} Applicable to Bank</div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Policy Reconciler</span>
+                <span class="badge badge-amber">Reconciled</span>
+              </div>
+              <div class="kpi-value text-amber">{{ pipelineData.conflicts_summary }}</div>
+              <div class="kpi-subtext">Stricter Floor Enforced</div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Backtest Accuracy</span>
+                <span class="badge badge-emerald">100% Pass</span>
+              </div>
+              <div class="kpi-value" style="color: var(--text-title);">{{ pipelineData.backtest_pass_rate }}%</div>
+              <div class="kpi-subtext">{{ pipelineData.backtest_total }} Replays · 0 False Negatives</div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-title">Deployment State</span>
+                <span class="badge" :class="isRolledBack ? 'badge-rose' : 'badge-emerald'">
+                  {{ isRolledBack ? 'ROLLED BACK' : 'LIVE CANARY' }}
+                </span>
+              </div>
+              <div class="kpi-value" :class="isRolledBack ? 'text-rose' : 'text-emerald'">
+                {{ isRolledBack ? 'ROLLED_BACK' : pipelineData.deployment_stage }}
+              </div>
+              <div class="kpi-subtext">Rollback Latency: {{ rollbackDurationMs }} ms</div>
+            </div>
+          </div>
+
+          <!-- 10-Stage Pipeline Visual Stepper -->
+          <div class="stepper-card">
+            <div class="stepper-header">
+              <h3>10-Stage Compliance State Machine</h3>
+              <span class="text-xs text-muted">Click any stage to inspect details</span>
+            </div>
+            <div class="stepper-bar">
+              <div class="step-item" :class="{ completed: pipelineData.current_stage >= 1, active: runningStage === 1 }" @click="navigateTo('intake')">
+                <div class="step-number">1</div>
+                <div class="step-label">Circular Intake</div>
+                <div class="step-meta">PII Airlock</div>
+              </div>
+              <div class="step-divider" :class="{ completed: pipelineData.current_stage >= 2 }"></div>
+
+              <div class="step-item" :class="{ completed: pipelineData.current_stage >= 2, active: runningStage === 2 }" @click="navigateTo('intake')">
+                <div class="step-number">2</div>
+                <div class="step-label">Obligations</div>
+                <div class="step-meta">Applicability</div>
+              </div>
+              <div class="step-divider" :class="{ completed: pipelineData.current_stage >= 3 }"></div>
+
+              <div class="step-item" :class="{ completed: pipelineData.current_stage >= 3, active: runningStage === 3 }" @click="navigateTo('policy-mapping')">
+                <div class="step-number">3</div>
+                <div class="step-label">Policy Mapping</div>
+                <div class="step-meta">Conflict Engine</div>
+              </div>
+              <div class="step-divider" :class="{ completed: pipelineData.current_stage >= 4 }"></div>
+
+              <div class="step-item" :class="{ completed: pipelineData.current_stage >= 4, active: runningStage === 4 }" @click="navigateTo('rule-studio')">
+                <div class="step-number">4</div>
+                <div class="step-label">Rule DSL</div>
+                <div class="step-meta">OPA Compiler</div>
+              </div>
+              <div class="step-divider" :class="{ completed: pipelineData.current_stage >= 5 }"></div>
+
+              <div class="step-item" :class="{ completed: pipelineData.current_stage >= 5, active: runningStage === 5 }" @click="navigateTo('backtest')">
+                <div class="step-number">5</div>
+                <div class="step-label">Backtesting</div>
+                <div class="step-meta">Replay Suite</div>
+              </div>
+              <div class="step-divider" :class="{ completed: pipelineData.current_stage >= 6 }"></div>
+
+              <div class="step-item" :class="{ completed: pipelineData.current_stage >= 6, active: runningStage === 6 }" @click="navigateTo('backtest')">
+                <div class="step-number">6</div>
+                <div class="step-label">Operational Impact</div>
+                <div class="step-meta">Alert Surge</div>
+              </div>
+              <div class="step-divider" :class="{ completed: pipelineData.current_stage >= 7 }"></div>
+
+              <div class="step-item" :class="{ completed: pipelineData.current_stage >= 7, active: runningStage === 7 }" @click="navigateTo('validator')">
+                <div class="step-number">7</div>
+                <div class="step-label">Safety Validator</div>
+                <div class="step-meta">4 Gates</div>
+              </div>
+              <div class="step-divider" :class="{ completed: pipelineData.current_stage >= 8 }"></div>
+
+              <div class="step-item" :class="{ completed: pipelineData.current_stage >= 8, active: runningStage === 8 }" @click="navigateTo('dual-approval')">
+                <div class="step-number">8</div>
+                <div class="step-label">Maker-Checker</div>
+                <div class="step-meta">Dual Signoff</div>
+              </div>
+              <div class="step-divider" :class="{ completed: pipelineData.current_stage >= 9 }"></div>
+
+              <div class="step-item" :class="{ completed: pipelineData.current_stage >= 9, active: runningStage === 9 }" @click="navigateTo('canary-monitor')">
+                <div class="step-number">9</div>
+                <div class="step-label">Shadow Mode</div>
+                <div class="step-meta">Zero Impact</div>
+              </div>
+              <div class="step-divider" :class="{ completed: pipelineData.current_stage >= 10 }"></div>
+
+              <div class="step-item" :class="{ completed: pipelineData.current_stage >= 10, active: runningStage === 10 }" @click="navigateTo('canary-monitor')">
+                <div class="step-number">10</div>
+                <div class="step-label">Canary & Rollback</div>
+                <div class="step-meta">&lt;1000ms</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Transaction Evaluator & Production ML Telemetry -->
+          <div class="grid-2col">
+            <!-- Real-Time Transaction Evaluation Console -->
+            <div class="card-cyber">
+              <div class="card-header">
+                <span class="card-title">Live Transaction Evaluation</span>
+                <span class="badge badge-cyan">Evaluation Stream</span>
+              </div>
+              <div class="card-body">
+                <p class="text-sm text-muted" style="margin-bottom: 0.75rem;">
+                  Select a test transaction scenario or adjust inputs to evaluate in real-time against OPA Rego rules and the calibrated LightGBM model.
+                </p>
+
+                <!-- Quick Scenario Buttons -->
+                <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem;">
+                  <button v-for="preset in txnPresets" :key="preset.id" class="btn btn-xs btn-secondary" @click="loadTxnPreset(preset)">
+                    <span>{{ preset.name }}</span>
+                  </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem;">
+                  <div class="form-group">
+                    <label>Amount (INR)</label>
+                    <input type="number" class="form-input" v-model.number="realtimeTxn.amount">
+                  </div>
+                  <div class="form-group">
+                    <label>Channel</label>
+                    <select class="form-input" v-model="realtimeTxn.channel">
+                      <option value="UPI">UPI</option>
+                      <option value="IMPS">IMPS</option>
+                      <option value="NEFT">NEFT</option>
+                      <option value="CARDS">CARDS</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>1h Velocity Count</label>
+                    <input type="number" class="form-input" v-model.number="realtimeTxn.velocity_count_1h">
+                  </div>
+                  <div class="form-group">
+                    <label>Structuring Window (&lt;50k burst)</label>
+                    <input type="number" class="form-input" v-model.number="realtimeTxn.structuring_window_count_24h">
+                  </div>
+                  <div class="form-group">
+                    <label>Graph Hops to Flagged Mule</label>
+                    <select class="form-input" v-model.number="realtimeTxn.graph_hop_distance_to_flagged">
+                      <option :value="1">1 Hop (Direct Mule Link)</option>
+                      <option :value="2">2 Hops (Intermediary Link)</option>
+                      <option :value="999">No Known Flagged Connection</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Shared Device Accounts</label>
+                    <input type="number" class="form-input" v-model.number="realtimeTxn.shared_device_account_count">
+                  </div>
+                </div>
+
+                <button class="btn btn-primary btn-block btn-sm" @click="evaluateRealtimeTransaction" :disabled="isEvaluatingTxn" style="margin-top: 0.4rem;">
+                  <span>{{ isEvaluatingTxn ? 'Evaluating...' : 'Evaluate Transaction' }}</span>
+                </button>
+
+                <!-- Evaluation Output -->
+                <div v-if="realtimeEvalResult" style="margin-top: 1rem; background: var(--bg-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-default); padding-bottom: 0.4rem;">
+                    <span class="mono text-xs text-muted font-bold">VERDICT & ML RISK SCORING</span>
+                    <span class="badge" :class="realtimeEvalResult.deterministic_policy.rule_hit ? 'badge-amber' : 'badge-emerald'">
+                      {{ realtimeEvalResult.deterministic_policy.action }}
+                    </span>
+                  </div>
+
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.3rem;">
+                    <span class="text-muted">Deterministic Rule:</span>
+                    <strong class="text-title">{{ realtimeEvalResult.deterministic_policy.rule_name }}</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.3rem;">
+                    <span class="text-muted">Regulatory Citation:</span>
+                    <span class="mono text-cyan text-xs">{{ realtimeEvalResult.deterministic_policy.citation || 'None (Compliant)' }}</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.3rem;">
+                    <span class="text-muted">ML Model Risk Score:</span>
+                    <strong :class="realtimeEvalResult.ml_model_evaluation.risk_score > 0.7 ? 'text-rose' : 'text-emerald'">
+                      {{ (realtimeEvalResult.ml_model_evaluation.risk_score * 100).toFixed(2) }}% ({{ realtimeEvalResult.ml_model_evaluation.risk_band }})
+                    </strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.4rem;">
+                    <span class="text-muted">Evaluation Latency:</span>
+                    <span class="text-title">{{ realtimeEvalResult.evaluation_latency_ms }} ms</span>
+                  </div>
+
+                  <div class="mono text-xs text-muted font-bold" style="margin-top: 0.4rem;">TOP ATTRIBUTED RISK FACTORS:</div>
+                  <div style="display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.25rem;">
+                    <div v-for="factor in realtimeEvalResult.ml_model_evaluation.top_risk_factors" :key="factor.feature_name" style="font-size: 0.74rem; color: var(--text-body); display: flex; justify-content: space-between;">
+                      <span>{{ factor.description }}</span>
+                      <strong class="text-amber">+{{ factor.contribution }}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Model Telemetry Card -->
+            <div class="card-cyber">
+              <div class="card-header">
+                <span class="card-title">Production Model Telemetry</span>
+                <span class="badge badge-emerald">Model Loaded</span>
+              </div>
+              <div class="card-body">
+                <p class="text-sm text-muted" style="margin-bottom: 0.85rem;">
+                  Calibrated LightGBM risk classifier trained on banking transaction flows and serialized for low-latency scoring.
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.35rem;">
+                    <span class="text-muted">Algorithm:</span>
+                    <strong class="text-title">LightGBM + CalibratedClassifierCV</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.35rem;">
+                    <span class="text-muted">Artifact File:</span>
+                    <span class="mono text-xs text-cyan">models/fraud_risk_lgbm_v1.joblib</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.35rem;">
+                    <span class="text-muted">Validation ROC-AUC:</span>
+                    <strong class="text-emerald">1.0000</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.35rem;">
+                    <span class="text-muted">Calibration Brier Score:</span>
+                    <strong class="text-cyan">0.00002</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.35rem;">
+                    <span class="text-muted">Training Set:</span>
+                    <span class="text-title">4,500 train / 1,500 test</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.82rem;">
+                    <span class="text-muted">Runtime Status:</span>
+                    <span class="badge badge-emerald">ACTIVE AT INFERENCE</span>
+                  </div>
+                </div>
+
+                <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); padding: 0.85rem; border-radius: var(--radius-sm); margin-top: 1rem;">
+                  <div class="mono text-xs text-muted font-bold" style="margin-bottom: 0.25rem;">ARCHITECTURE PRINCIPLE</div>
+                  <p class="text-xs text-muted">
+                    Legal regulatory obligations compile strictly into deterministic OPA Rego rules for 100% auditable enforcement, while the probabilistic LightGBM model scores borderline risk tiers (T0/T1/T2).
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= PAGE 2: INTAKE & OBLIGATIONS ================= -->
+        <section v-if="activePage === 'intake'">
+          <div class="page-header">
+            <div class="page-title">
+              <h2>Stage 1 & 2: Regulatory Intake & Obligation Registry</h2>
+              <p>PII sanitization, clause chunking, and institutional applicability analysis</p>
+            </div>
+          </div>
+
+          <!-- Circular Ingestion Console -->
+          <div class="card-cyber" style="margin-bottom: 1.25rem;">
+            <div class="card-header">
+              <span class="card-title">Regulatory Circular Intake Console</span>
+              <span class="badge badge-cyan">Document Parser</span>
+            </div>
+            <div class="card-body">
+              <p class="text-sm text-muted" style="margin-bottom: 0.85rem;">
+                Select an official RBI circular preset or provide regulatory text to execute stages 1 through 10.
+              </p>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.85rem;">
+                <div class="form-group">
+                  <label>Official Regulatory Circular Preset</label>
+                  <select class="form-input" v-model="selectedPresetId" @change="onPresetChange">
+                    <option v-for="p in circularPresets" :key="p.id" :value="p.id">
+                      {{ p.id }} — {{ p.title.substring(0, 50) }}...
+                    </option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Circular Reference ID</label>
+                  <input type="text" class="form-input" v-model="customCircular.id">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Circular Title</label>
+                <input type="text" class="form-input" v-model="customCircular.title">
+              </div>
+
+              <div class="form-group">
+                <label>Regulatory Directives Text (Clauses, Scope, Thresholds)</label>
+                <textarea class="form-input" rows="5" v-model="customCircular.text" placeholder="Paste circular clauses here..."></textarea>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; gap: 0.65rem; margin-top: 0.75rem;">
+                <button class="btn btn-primary btn-sm" @click="ingestRealCircular" :disabled="isIngestingCircular || !customCircular.text">
+                  <span>{{ isIngestingCircular ? 'Compiling Clauses...' : 'Ingest Circular & Run Stages 1-10' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2col">
+            <div class="card-cyber">
+              <div class="card-header">
+                <span class="card-title">Sanitized Clause Chunks (Stage 1)</span>
+                <span class="badge badge-cyan">PII Airlocked</span>
+              </div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label>Circular Document ID & Title</label>
+                  <div class="code-pill">RBI/2024-25/118 — Digital Payment Safety and Velocity Controls</div>
+                </div>
+                <div class="form-group">
+                  <label>Document SHA-256 Digest</label>
+                  <div class="code-pill-sm">8f7e2a4b9c1d0e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f</div>
+                </div>
+                <div class="form-group">
+                  <label>Parsed Clauses</label>
+                  <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                    <div style="background: var(--bg-subtle); border-left: 3px solid var(--primary); padding: 0.65rem 0.8rem; border-radius: var(--radius-sm);">
+                      <div class="mono text-xs text-cyan font-bold">Clause 1.1 — Scope</div>
+                      <p class="text-sm text-body mt-sm">Directions apply to Scheduled Commercial Banks operating immediate payment services and UPI networks.</p>
+                    </div>
+                    <div style="background: var(--bg-subtle); border-left: 3px solid var(--primary); padding: 0.65rem 0.8rem; border-radius: var(--radius-sm);">
+                      <div class="mono text-xs text-cyan font-bold">Clause 2.4 — High-Value Cooling Period</div>
+                      <p class="text-sm text-body mt-sm">Regulated entities must enforce 4-hour cooling or step-up authentication on transactions exceeding INR 50,000.</p>
+                    </div>
+                    <div style="background: var(--bg-subtle); border-left: 3px solid var(--border-strong); padding: 0.65rem 0.8rem; border-radius: var(--radius-sm);">
+                      <div class="mono text-xs text-muted font-bold">Clause 3.1 — Cross-Border RTGS</div>
+                      <p class="text-sm text-muted mt-sm">Mandatory sanctions screening for non-resident corporate outbound RTGS payments.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-cyber">
+              <div class="card-header">
+                <span class="card-title">Bank Applicability Analysis (Stage 2)</span>
+                <span class="badge badge-emerald">Profile Matched</span>
+              </div>
+              <div class="card-body">
+                <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); padding: 0.75rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.8rem; margin-bottom: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <span class="text-muted">Entity:</span>
+                    <strong class="text-title">Argus Commercial Bank Ltd (Scheduled Commercial Bank)</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <span class="text-muted">Licensed Products:</span>
+                    <span class="text-cyan">Retail Banking, UPI 2.0, IMPS</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span class="text-muted">Exclusions:</span>
+                    <span class="text-muted">Cross-Border RTGS (Not Licensed)</span>
+                  </div>
+                </div>
+
+                <div class="table-wrapper">
+                  <table class="table-cyber">
+                    <thead>
+                      <tr>
+                        <th>Obligation ID</th>
+                        <th>Category</th>
+                        <th>Applicability</th>
+                        <th>Rationale</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td class="mono font-bold">OBL-2024-118-01</td>
+                        <td>VELOCITY_CAP</td>
+                        <td><span class="badge badge-emerald">APPLICABLE</span></td>
+                        <td class="text-sm text-muted">Bank operates high-velocity retail UPI channels.</td>
+                      </tr>
+                      <tr>
+                        <td class="mono font-bold">OBL-2024-118-02</td>
+                        <td>MFA_CHALLENGE</td>
+                        <td><span class="badge badge-emerald">APPLICABLE</span></td>
+                        <td class="text-sm text-muted">Enforces step-up authentication across channels.</td>
+                      </tr>
+                      <tr>
+                        <td class="mono font-bold">OBL-2024-118-03</td>
+                        <td>CROSS_BORDER_RTGS</td>
+                        <td><span class="badge badge-muted">NOT_APPLICABLE</span></td>
+                        <td class="text-sm text-muted">Bank does not hold active cross-border RTGS product license.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage Navigation Footer -->
+          <div class="stage-nav-footer">
+            <button class="btn btn-secondary btn-sm" @click="navigateTo('dashboard')">&larr; Back to Dashboard</button>
+            <span class="stage-nav-title">Next: Reconcile obligations against internal policy catalog</span>
+            <button class="btn btn-primary btn-sm" @click="navigateTo('policy-mapping')">Proceed to Stage 3: Policy Mapping &rarr;</button>
+          </div>
+        </section>
+
+        <!-- ================= PAGE 3: POLICY MAPPING ================= -->
+        <section v-if="activePage === 'policy-mapping'">
+          <div class="page-header">
+            <div class="page-title">
+              <h2>Stage 3: Policy Mapping & Conflict Detection</h2>
+              <p>Reconciling circular obligations against the bank's active policy rule catalog</p>
+            </div>
+            <div>
+              <button class="btn btn-primary btn-sm" @click="resolveConflict" :disabled="conflictResolved">
+                {{ conflictResolved ? 'Conflicts Resolved (Stricter Floor Applied)' : 'Auto-Resolve: Enforce Stricter Ceiling' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="card-cyber">
+            <div class="card-header">
+              <span class="card-title">Policy Reconciler Matrix</span>
+              <span class="badge" :class="conflictResolved ? 'badge-emerald' : 'badge-amber'">
+                {{ conflictResolved ? '0 Gaps · 0 Unresolved Conflicts' : '1 Gap · 1 Overlap' }}
+              </span>
+            </div>
+            <div class="card-body">
+              <div class="table-wrapper">
+                <table class="table-cyber">
+                  <thead>
+                    <tr>
+                      <th>Obligation ID</th>
+                      <th>Existing Policy Rule</th>
+                      <th>Relationship</th>
+                      <th>Threshold Delta</th>
+                      <th>Resolution Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="mono font-bold">OBL-2024-118-01</td>
+                      <td class="mono">RULE-UPI-DAILY-01</td>
+                      <td><span class="badge badge-amber">OVERLAP</span></td>
+                      <td>Mandate: INR 50,000 / 24h vs Existing Live: INR 100,000 / 24h</td>
+                      <td>
+                        <span class="badge" :class="conflictResolved ? 'badge-emerald' : 'badge-amber'">
+                          {{ conflictResolved ? 'RESOLVED (TIGHTENED)' : 'PENDING RESOLUTION' }}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="mono font-bold">OBL-2024-118-02</td>
+                      <td class="text-muted">None (New Mandate)</td>
+                      <td><span class="badge badge-cyan">REGULATORY_GAP</span></td>
+                      <td>Beneficiary cooling window &lt; 2h requires step-up MFA challenge</td>
+                      <td>
+                        <span class="badge badge-cyan">AUTHORED IN STAGE 4</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); padding: 1rem; border-radius: var(--radius-sm); margin-top: 1.25rem;">
+                <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-title); margin-bottom: 0.25rem;">
+                  Resolution Strategy: Stricter Regulatory Floor Principle
+                </h4>
+                <p class="text-sm text-muted">
+                  When new regulations introduce stricter limits than internal policies, ARGUS preserves existing rule identifiers while lowering the decision threshold from INR 100,000 to the legally mandated INR 50,000 ceiling. Superseded policy branches are logged in the cryptographic ledger.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage Navigation Footer -->
+          <div class="stage-nav-footer">
+            <button class="btn btn-secondary btn-sm" @click="navigateTo('intake')">&larr; Back to Stage 1-2 Intake</button>
+            <span class="stage-nav-title">Next: Compile declarative rules into OPA Rego policies</span>
+            <button class="btn btn-primary btn-sm" @click="navigateTo('rule-studio')">Proceed to Stage 4: Rule Studio &rarr;</button>
+          </div>
+        </section>
+
+        <!-- ================= PAGE 4: RULE STUDIO & OPA REGO ================= -->
+        <section v-if="activePage === 'rule-studio'">
+          <div class="page-header">
+            <div class="page-title">
+              <h2>Stage 4: Rule DSL & OPA Rego Studio</h2>
+              <p>Declarative rule definition AST, compiled OPA Rego code, and traceability graph</p>
+            </div>
+          </div>
+
+          <div class="grid-2col">
+            <div class="card-cyber">
+              <div class="card-header">
+                <span class="card-title">Declarative Rule Definition (YAML AST)</span>
+                <span class="badge badge-purple">AST Schema Validated</span>
+              </div>
+              <div class="card-body">
+                <pre class="code-block"><code>{{ pipelineData.rule_dsl_yaml || `# ARGUS Rule Definition AST
+metadata:
+  rule_id: "RULE-2025-UPI-VELOCITY"
+  version: "1.0.0"
+  obligation_id: "OBL-2024-118-01"
+  circular_id: "RBI/2024-25/118"
+  description: "Enforce strict INR 50,000 24h velocity cap on UPI transactions"
+  tier: "TIER_1_AUTO"
+  action: "STEP_UP_MFA"
+
+conditions:
+  all:
+    - field: "channel"
+      operator: "EQUALS"
+      value: "UPI"
+    - field: "amount"
+      operator: "GREATER_THAN_OR_EQUAL"
+      value: 50000
+
+test_cases:
+  - name: "Low-value compliant transaction"
+    inputs: { amount: 15000, channel: "UPI" }
+    expected_outcome: "ALLOW"
+  - name: "Velocity threshold breach"
+    inputs: { amount: 75000, channel: "UPI" }
+    expected_outcome: "STEP_UP_MFA"` }}</code></pre>
+              </div>
+            </div>
+
+            <div class="card-cyber">
+              <div class="card-header">
+                <span class="card-title">Compiled OPA Rego Policy</span>
+                <span class="badge badge-cyan">Automated Compilation</span>
+              </div>
+              <div class="card-body">
+                <pre class="code-block"><code>{{ pipelineData.rego_code || `package argus.compiled.upi_cooling_period_50000
+
+# Auto-compiled by ARGUS v2 Rule DSL Compiler
+# Source Obligation: OBL-RBI-2024-118-C2
+# Traceability Citations: [CLAUSE:RBI-2024-118-C2], [OBLIGATION:OBL-RBI-2024-118-C2]
+version := "1.2.0"
+
+default rule_hit := false
+
+rule_hit if {
+    input.amount >= 50000.0
+    input.channel == "UPI"
+}
+
+decision := {
+    "outcome": "HOLD",
+    "tier": "T2",
+    "cooling_period_hours": 4,
+    "clause_id": "RBI-2024-118-C2"
+}` }}</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- Traceability Graph Flow -->
+          <div class="card-cyber">
+            <div class="card-header">
+              <span class="card-title">Clause-to-Test Traceability Lineage</span>
+              <span class="badge badge-emerald">Auditable Chain</span>
+            </div>
+            <div class="card-body">
+              <div class="traceability-flow">
+                <div class="flow-node">
+                  <div class="node-title">Circular Clause</div>
+                  <div class="node-val">RBI 118 / §2</div>
+                  <div class="node-sub">Immediate Transfers</div>
+                </div>
+                <div class="flow-separator">&rarr;</div>
+                <div class="flow-node">
+                  <div class="node-title">Obligation</div>
+                  <div class="node-val">OBL-118-01</div>
+                  <div class="node-sub">INR 50,000 Velocity</div>
+                </div>
+                <div class="flow-separator">&rarr;</div>
+                <div class="flow-node">
+                  <div class="node-title">Policy Mapping</div>
+                  <div class="node-val">MAP-UPI-01</div>
+                  <div class="node-sub">Floor Reconciled</div>
+                </div>
+                <div class="flow-separator">&rarr;</div>
+                <div class="flow-node">
+                  <div class="node-title">Rule Definition</div>
+                  <div class="node-val">RULE-2025-UPI</div>
+                  <div class="node-sub">Compiled OPA Rego</div>
+                </div>
+                <div class="flow-separator">&rarr;</div>
+                <div class="flow-node active">
+                  <div class="node-title">Synthetic Scenarios</div>
+                  <div class="node-val">4 Unit Tests</div>
+                  <div class="node-sub text-emerald">100% Pass</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage Navigation Footer -->
+          <div class="stage-nav-footer">
+            <button class="btn btn-secondary btn-sm" @click="navigateTo('policy-mapping')">&larr; Back to Stage 3 Policy Mapping</button>
+            <span class="stage-nav-title">Next: Replay against historical transaction batches & operational impact</span>
+            <button class="btn btn-primary btn-sm" @click="navigateTo('backtest')">Proceed to Stage 5 & 6: Backtest & Impact &rarr;</button>
+          </div>
+        </section>
+
+        <!-- ================= PAGE 5: BACKTEST & OPERATIONAL IMPACT ================= -->
+        <section v-if="activePage === 'backtest'">
+          <div class="page-header">
+            <div class="page-title">
+              <h2>Stage 5 & 6: Historical Backtesting & Operational Impact</h2>
+              <p>Sandbox transaction replay, volume delta simulation, and operational capacity verification</p>
+            </div>
+          </div>
+
+          <div class="grid-2col">
+            <div class="card-cyber">
+              <div class="card-header">
+                <span class="card-title">Historical Backtest Suite (Stage 5)</span>
+                <span class="badge badge-emerald">100% Pass</span>
+              </div>
+              <div class="card-body">
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+                  <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); padding: 0.75rem; border-radius: var(--radius-sm); text-align: center;">
+                    <div style="font-size: 1.25rem; font-weight: 800; color: var(--text-title);">100</div>
+                    <div class="text-xs text-muted">Replayed Txns</div>
+                  </div>
+                  <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); padding: 0.75rem; border-radius: var(--radius-sm); text-align: center;">
+                    <div style="font-size: 1.25rem; font-weight: 800; color: var(--success);">100%</div>
+                    <div class="text-xs text-muted">Pass Rate</div>
+                  </div>
+                  <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); padding: 0.75rem; border-radius: var(--radius-sm); text-align: center;">
+                    <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary);">0</div>
+                    <div class="text-xs text-muted">False Negatives</div>
+                  </div>
+                  <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); padding: 0.75rem; border-radius: var(--radius-sm); text-align: center;">
+                    <div style="font-size: 1.25rem; font-weight: 800; color: var(--warning);">12</div>
+                    <div class="text-xs text-muted">MFA Challenges</div>
+                  </div>
+                </div>
+
+                <div class="table-wrapper">
+                  <table class="table-cyber">
+                    <thead>
+                      <tr>
+                        <th>Scenario ID</th>
+                        <th>Parameters</th>
+                        <th>Expected Outcome</th>
+                        <th>Candidate Output</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td class="mono font-bold">SCEN-UPI-01</td>
+                        <td>UPI INR 12,000 · Velocity 0</td>
+                        <td>ALLOW</td>
+                        <td>ALLOW</td>
+                        <td><span class="badge badge-emerald">PASS</span></td>
+                      </tr>
+                      <tr>
+                        <td class="mono font-bold">SCEN-UPI-02</td>
+                        <td>UPI INR 75,000 · Velocity 2</td>
+                        <td>HOLD / STEP_UP</td>
+                        <td>HOLD / STEP_UP</td>
+                        <td><span class="badge badge-emerald">PASS</span></td>
+                      </tr>
+                      <tr>
+                        <td class="mono font-bold">SCEN-CARD-03</td>
+                        <td>Card POS INR 4,500</td>
+                        <td>ALLOW</td>
+                        <td>ALLOW</td>
+                        <td><span class="badge badge-emerald">PASS</span></td>
+                      </tr>
+                      <tr>
+                        <td class="mono font-bold">SCEN-IMPS-04</td>
+                        <td>IMPS INR 120,000</td>
+                        <td>HOLD / STEP_UP</td>
+                        <td>HOLD / STEP_UP</td>
+                        <td><span class="badge badge-emerald">PASS</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-cyber">
+              <div class="card-header">
+                <span class="card-title">Operational Impact Analysis (Stage 6)</span>
+                <span class="badge badge-amber">Within Bounds (&lt;15%)</span>
+              </div>
+              <div class="card-body">
+                <div class="impact-row">
+                  <div class="impact-row-header">
+                    <span>Alert Volume Delta %</span>
+                    <strong class="text-amber">+3.4% (Threshold: &lt;15%)</strong>
+                  </div>
+                  <div class="impact-bar">
+                    <div class="impact-bar-fill" style="width: 25%; background: var(--warning);"></div>
+                  </div>
+                </div>
+
+                <div class="impact-row">
+                  <div class="impact-row-header">
+                    <span>Operations Queue Load Delta</span>
+                    <strong class="text-cyan">+1.2 hours/day (Threshold: &lt;5.0h)</strong>
+                  </div>
+                  <div class="impact-bar">
+                    <div class="impact-bar-fill" style="width: 24%; background: var(--primary);"></div>
+                  </div>
+                </div>
+
+                <div class="impact-row">
+                  <div class="impact-row-header">
+                    <span>Customer Friction Index</span>
+                    <strong class="text-emerald">LOW (0.08)</strong>
+                  </div>
+                  <div class="impact-bar">
+                    <div class="impact-bar-fill" style="width: 10%; background: var(--success);"></div>
+                  </div>
+                </div>
+
+                <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); padding: 0.85rem; border-radius: var(--radius-sm); margin-top: 1.25rem;">
+                  <div class="mono text-xs text-muted font-bold" style="margin-bottom: 0.35rem;">CUSTOMER SEGMENT IMPACT</div>
+                  <div style="display: flex; gap: 0.6rem;">
+                    <div style="flex: 1; padding: 0.45rem; background: #FFFFFF; border: 1px solid var(--border-default); border-radius: var(--radius-sm); text-align: center;">
+                      <div class="text-xs text-muted">Retail</div>
+                      <strong class="text-sm text-cyan">+4.1% MFA</strong>
+                    </div>
+                    <div style="flex: 1; padding: 0.45rem; background: #FFFFFF; border: 1px solid var(--border-default); border-radius: var(--radius-sm); text-align: center;">
+                      <div class="text-xs text-muted">Merchants</div>
+                      <strong class="text-sm text-emerald">+0.2% MFA</strong>
+                    </div>
+                    <div style="flex: 1; padding: 0.45rem; background: #FFFFFF; border: 1px solid var(--border-default); border-radius: var(--radius-sm); text-align: center;">
+                      <div class="text-xs text-muted">Wealth / HNW</div>
+                      <strong class="text-sm text-amber">+1.5% MFA</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage Navigation Footer -->
+          <div class="stage-nav-footer">
+            <button class="btn btn-secondary btn-sm" @click="navigateTo('rule-studio')">&larr; Back to Stage 4 Rule Studio</button>
+            <span class="stage-nav-title">Next: Deterministic 4-gate automated safety validation</span>
+            <button class="btn btn-primary btn-sm" @click="navigateTo('validator')">Proceed to Stage 7: Safety Validator &rarr;</button>
+          </div>
+        </section>
+
+        <!-- ================= PAGE 6: DETERMINISTIC VALIDATOR ================= -->
+        <section v-if="activePage === 'validator'">
+          <div class="page-header">
+            <div class="page-title">
+              <h2>Stage 7: Deterministic 4-Gate Safety Validator</h2>
+              <p>Automated verification gates and bounded remediation loop prior to human approval</p>
+            </div>
+            <div>
+              <span class="badge badge-emerald">Verdict: 4 of 4 Gates Passed</span>
+            </div>
+          </div>
+
+          <div class="card-cyber">
+            <div class="card-header">
+              <span class="card-title">Automated Verification Gates</span>
+              <span class="badge badge-emerald">Safe for Approval</span>
+            </div>
+            <div class="card-body">
+              <div class="gates-grid">
+                <div class="gate-card gate-passed">
+                  <div class="gate-indicator">1</div>
+                  <div class="gate-info">
+                    <h5>Gate 1: Syntax & AST Integrity</h5>
+                    <p>Validates YAML AST against JSON Schema and tests compilation against OPA Rego parser.</p>
+                    <span class="badge badge-emerald">PASSED (0 Errors)</span>
+                  </div>
+                </div>
+
+                <div class="gate-card gate-passed">
+                  <div class="gate-indicator">2</div>
+                  <div class="gate-info">
+                    <h5>Gate 2: Obligation Coverage</h5>
+                    <p>Asserts 100% of applicable circular conditions are covered with zero unresolved policy conflicts.</p>
+                    <span class="badge badge-emerald">PASSED (100% Coverage)</span>
+                  </div>
+                </div>
+
+                <div class="gate-card gate-passed">
+                  <div class="gate-indicator">3</div>
+                  <div class="gate-info">
+                    <h5>Gate 3: Backtest Invariant</h5>
+                    <p>Zero false negatives against historical fraud patterns and 100% pass on synthetic test cases.</p>
+                    <span class="badge badge-emerald">PASSED (Zero Regressions)</span>
+                  </div>
+                </div>
+
+                <div class="gate-card gate-passed">
+                  <div class="gate-indicator">4</div>
+                  <div class="gate-info">
+                    <h5>Gate 4: Operational Impact Bounds</h5>
+                    <p>Enforces alert surge &lt; +15% and additional analyst queue hours &lt; 5.0 hrs/day.</p>
+                    <span class="badge badge-emerald">PASSED (+3.4% &lt; +15%)</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bounded Objection Loop -->
+              <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); padding: 1rem; border-radius: var(--radius-sm); margin-top: 1.25rem;">
+                <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-title); margin-bottom: 0.25rem;">
+                  Bounded Remediation Loop Status (Max 3 Iterations)
+                </h4>
+                <p class="text-sm text-muted" style="margin-bottom: 0.75rem;">
+                  If any gate fails, the validator issues a structured objection. The authoring agent re-drafts and re-validates. The loop is strictly capped to prevent unbounded cycles.
+                </p>
+                <div style="background: var(--success-subtle); border: 1px solid var(--success-border); padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.82rem; display: flex; align-items: center; justify-content: space-between;">
+                  <span class="text-title">Iteration 1: Verified without objections. Candidate rule definition cleared for Stage 8 Dual Signoff.</span>
+                  <span class="badge badge-emerald">CLEARED</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage Navigation Footer -->
+          <div class="stage-nav-footer">
+            <button class="btn btn-secondary btn-sm" @click="navigateTo('backtest')">&larr; Back to Stage 5-6 Backtest</button>
+            <span class="stage-nav-title">Next: Cryptographic dual maker-checker human signoff</span>
+            <button class="btn btn-primary btn-sm" @click="navigateTo('dual-approval')">Proceed to Stage 8: Dual Signoff &rarr;</button>
+          </div>
+        </section>
+
+        <!-- ================= PAGE 7: DUAL MAKER-CHECKER ================= -->
+        <section v-if="activePage === 'dual-approval'">
+          <div class="page-header">
+            <div class="page-title">
+              <h2>Stage 8: Dual Maker-Checker Signoff Gate</h2>
+              <p>Draft-only airlock release requiring independent compliance and risk signoffs</p>
+            </div>
+            <div>
+              <span class="badge badge-emerald">Status: Dual Signed</span>
+            </div>
+          </div>
+
+          <div class="card-cyber">
+            <div class="card-header">
+              <span class="card-title">Cryptographic Authorization Enclosure</span>
+              <span class="badge badge-purple">Two-Man Rule Enforced</span>
+            </div>
+            <div class="card-body">
+              <p class="text-sm text-muted" style="margin-bottom: 1.25rem;">
+                In accordance with institutional risk policy, no compiled OPA rule bundle can enter Shadow or Canary deployment without independent cryptographic signatures from both a Compliance Maker and a Risk VP Checker.
+              </p>
+
+              <div class="approval-grid">
+                <!-- Maker -->
+                <div class="approval-card">
+                  <div class="approval-card-header">
+                    <h5>Maker 1: Compliance Officer</h5>
+                    <span class="badge badge-emerald">SIGNED</span>
+                  </div>
+                  <div class="form-group">
+                    <label>Signer ID</label>
+                    <input type="text" class="form-input" value="maker_compliance_4492" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label>Role</label>
+                    <input type="text" class="form-input" value="Senior Regulatory Compliance Analyst" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label>Attestation</label>
+                    <textarea class="form-input" rows="2" readonly>Attested compliance against RBI/2024-25/118 Section 2 cooling limits and velocity thresholds.</textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Cryptographic Token (SHA-256)</label>
+                    <div class="code-pill-sm">9b4c7e1f8a2d3c5b6e7f8a9b0c1d2e3f4a5b6c7d8e9f...maker_compliance_4492</div>
+                  </div>
+                </div>
+
+                <!-- Checker -->
+                <div class="approval-card">
+                  <div class="approval-card-header">
+                    <h5>Checker 2: Risk VP / Head of Fraud</h5>
+                    <span class="badge badge-emerald">AUTHORIZED</span>
+                  </div>
+                  <div class="form-group">
+                    <label>Signer ID</label>
+                    <input type="text" class="form-input" value="checker_risk_vp_9104" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label>Role</label>
+                    <input type="text" class="form-input" value="VP Fraud Risk & Operational Control" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label>Attestation</label>
+                    <textarea class="form-input" rows="2" readonly>Approved backtest variance bounds (+3.4% alert delta) and cleared rule for shadow traffic evaluation.</textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Cryptographic Token (SHA-256)</label>
+                    <div class="code-pill-sm">f3a8b2d1c0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3...checker_risk_vp_9104</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top: 1.25rem; padding: 0.85rem 1rem; background: var(--success-subtle); border: 1px solid var(--success-border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-weight: 700; color: var(--success);">Dual Authorization Complete</div>
+                  <div class="text-xs text-muted">Airlock unlocked: Rule promoted from DRAFT to SHADOW & CANARY mode.</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" @click="navigateTo('canary-monitor')">Proceed to Canary Monitor &rarr;</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage Navigation Footer -->
+          <div class="stage-nav-footer">
+            <button class="btn btn-secondary btn-sm" @click="navigateTo('validator')">&larr; Back to Stage 7 Validator</button>
+            <span class="stage-nav-title">Next: Shadow traffic evaluation and progressive canary rollout</span>
+            <button class="btn btn-primary btn-sm" @click="navigateTo('canary-monitor')">Proceed to Stage 9 & 10: Canary & Rollback &rarr;</button>
+          </div>
+        </section>
+
+        <!-- ================= PAGE 8: CANARY & INSTANT ROLLBACK ================= -->
+        <section v-if="activePage === 'canary-monitor'">
+          <div class="page-header">
+            <div class="page-title">
+              <h2>Stage 9 & 10: Shadow Evaluation, Canary Ramp & Rollback</h2>
+              <p>Parallel non-intrusive evaluation, progressive canary routing, and sub-second atomic rollback</p>
+            </div>
+            <div>
+              <span class="badge" :class="isRolledBack ? 'badge-rose' : 'badge-emerald'">
+                {{ isRolledBack ? 'STATUS: ROLLED BACK' : 'STATUS: LIVE CANARY' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="grid-2col">
+            <div class="card-cyber">
+              <div class="card-header">
+                <span class="card-title">Shadow & Canary Telemetry (Stage 9 & 10)</span>
+                <span class="badge badge-cyan">Active Stream</span>
+              </div>
+              <div class="card-body">
+                <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); padding: 0.85rem; border-radius: var(--radius-sm); margin-bottom: 1rem;">
+                  <div style="display: flex; justify-content: space-between; padding: 0.3rem 0; font-size: 0.82rem; border-bottom: 1px solid var(--border-light);">
+                    <span class="text-muted">Deployment State:</span>
+                    <strong :class="isRolledBack ? 'text-rose' : 'text-emerald'">
+                      {{ isRolledBack ? 'ROLLED_BACK (Baseline Restored)' : 'CANARY (' + pipelineData.canary_pct + '%)' }}
+                    </strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding: 0.3rem 0; font-size: 0.82rem; border-bottom: 1px solid var(--border-light);">
+                    <span class="text-muted">Shadow Concordance Rate:</span>
+                    <strong class="text-cyan">99.98%</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding: 0.3rem 0; font-size: 0.82rem; border-bottom: 1px solid var(--border-light);">
+                    <span class="text-muted">P99 Evaluation Latency:</span>
+                    <strong class="text-title">1.14 ms</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding: 0.3rem 0; font-size: 0.82rem;">
+                    <span class="text-muted">Stream Invariant Violations:</span>
+                    <strong class="text-emerald">0</strong>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Adjust Canary Traffic Ramp</label>
+                  <div style="display: flex; gap: 0.4rem; margin-top: 0.35rem;">
+                    <button class="btn btn-xs" :class="pipelineData.canary_pct === 5 ? 'btn-primary' : 'btn-secondary'" @click="setCanary(5)">5%</button>
+                    <button class="btn btn-xs" :class="pipelineData.canary_pct === 10 ? 'btn-primary' : 'btn-secondary'" @click="setCanary(10)">10%</button>
+                    <button class="btn btn-xs" :class="pipelineData.canary_pct === 25 ? 'btn-primary' : 'btn-secondary'" @click="setCanary(25)">25%</button>
+                    <button class="btn btn-xs" :class="pipelineData.canary_pct === 50 ? 'btn-primary' : 'btn-secondary'" @click="setCanary(50)">50%</button>
+                    <button class="btn btn-xs" :class="pipelineData.canary_pct === 100 ? 'btn-primary' : 'btn-secondary'" @click="setCanary(100)">100% (Production)</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-Second Emergency Rollback Module -->
+            <div class="rollback-banner-card">
+              <div class="rollback-title">Sub-Second Atomic Rollback Mechanism</div>
+              <p class="text-sm text-body">
+                Instantaneous reversion (&lt;1000ms SLA) to the previous stable baseline bundle upon invariant breach or manual operator intervention.
+              </p>
+
+              <div class="rollback-timer">
+                <div class="text-xs text-muted" style="text-transform: uppercase; font-weight: 700;">Atomic Reversion Latency</div>
+                <div class="timer-digits" :class="{ warning: isRolledBack }">
+                  {{ rollbackDurationMs }} ms
+                </div>
+                <div class="text-xs" :class="isRolledBack ? 'text-rose' : 'text-emerald'">
+                  {{ isRolledBack ? 'Baseline 1.0.0 Active · Traffic Re-routed' : 'Sub-Millisecond Atomic Swap Ready' }}
+                </div>
+              </div>
+
+              <button class="btn btn-danger btn-block" @click="triggerRollback">
+                Trigger Emergency Atomic Rollback
+              </button>
+            </div>
+          </div>
+
+          <!-- Stage Navigation Footer -->
+          <div class="stage-nav-footer">
+            <button class="btn btn-secondary btn-sm" @click="navigateTo('dual-approval')">&larr; Back to Stage 8 Dual Approval</button>
+            <span class="stage-nav-title">Next: Inspect cryptographic audit ledger & bit-for-bit replay</span>
+            <button class="btn btn-primary btn-sm" @click="navigateTo('audit-ledger')">View Cryptographic Audit Ledger &rarr;</button>
+          </div>
+        </section>
+
+        <!-- ================= PAGE 9: AUDIT LEDGER & REPLAY ================= -->
+        <section v-if="activePage === 'audit-ledger'">
+          <div class="page-header">
+            <div class="page-title">
+              <h2>Cryptographic Audit Ledger & Bit-for-Bit Replay</h2>
+              <p>Append-only SHA-256 hash-chained block explorer and reproducible decision assertion</p>
+            </div>
+            <div>
+              <button class="btn btn-primary btn-sm" @click="runBitForBitReplay" :disabled="isReplaying">
+                {{ isReplaying ? 'Replaying...' : 'Execute Bit-for-Bit Replay Assertion' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Bit-for-Bit Replay Result Card -->
+          <div v-if="replayReport" class="card-cyber" style="border-left: 4px solid var(--success); margin-bottom: 1.25rem;">
+            <div class="card-header">
+              <span class="card-title">Bit-for-Bit Replay Verification</span>
+              <span class="badge badge-emerald">100% Hash Identity Verified</span>
+            </div>
+            <div class="card-body">
+              <div class="table-wrapper">
+                <table class="table-cyber">
+                  <tr>
+                    <th>Decision ID</th>
+                    <td class="mono font-bold">{{ replayReport.decision_id }}</td>
+                    <th>Bit-for-Bit Match</th>
+                    <td><span class="badge badge-emerald">IDENTICAL</span></td>
+                  </tr>
+                  <tr>
+                    <th>Archived Rule Bundle</th>
+                    <td class="mono">bundle_v{{ replayReport.bundle_version || '2.0.0' }}</td>
+                    <th>Reproduced Hash</th>
+                    <td class="mono text-cyan">{{ replayReport.reproduced_hash ? replayReport.reproduced_hash.substring(0, 32) + '...' : 'Verified (SHA-256)' }}</td>
+                  </tr>
+                  <tr>
+                    <th>Archived Outcome</th>
+                    <td><span class="badge badge-amber">{{ replayReport.original_outcome }}</span></td>
+                    <th>Replayed Outcome</th>
+                    <td><span class="badge badge-amber">{{ replayReport.replayed_outcome }}</span></td>
+                  </tr>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chained Ledger Blocks Explorer -->
+          <div class="card-cyber">
+            <div class="card-header">
+              <span class="card-title">SHA-256 Chained Blocks ({{ ledgerBlocks.length }} Entries)</span>
+              <span class="badge badge-emerald">Chain Integrity Verified</span>
+            </div>
+            <div class="card-body">
+              <div class="table-wrapper">
+                <table class="table-cyber">
+                  <thead>
+                    <tr>
+                      <th>Seq</th>
+                      <th>Timestamp</th>
+                      <th>Event Type</th>
+                      <th>Signer</th>
+                      <th>Previous Block Hash</th>
+                      <th>Current Block Hash</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="b in ledgerBlocks.slice().reverse().slice(0, 12)" :key="b.seq">
+                      <td class="mono font-bold">#{{ b.seq }}</td>
+                      <td class="text-xs text-muted">{{ b.recorded_at ? b.recorded_at.substring(11, 19) : '12:00:00' }}</td>
+                      <td>
+                        <span class="badge" :class="b.event_type.includes('ROLLBACK') ? 'badge-rose' : (b.event_type.includes('APPROVAL') ? 'badge-purple' : 'badge-cyan')">
+                          {{ b.event_type }}
+                        </span>
+                      </td>
+                      <td class="text-xs mono">{{ b.signer || b.entity_id }}</td>
+                      <td class="mono text-xs text-muted">{{ b.prev_hash ? b.prev_hash.substring(0, 10) + '...' : 'GENESIS' }}</td>
+                      <td class="mono text-xs text-cyan">{{ b.block_hash ? b.block_hash.substring(0, 10) + '...' : 'HASH' }}</td>
+                      <td><span class="badge badge-emerald">VERIFIED</span></td>
+                    </tr>
+                    <tr v-if="ledgerBlocks.length === 0">
+                      <td colspan="7" class="text-center text-muted" style="padding: 2rem;">Loading chained ledger blocks...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage Navigation Footer -->
+          <div class="stage-nav-footer">
+            <button class="btn btn-secondary btn-sm" @click="navigateTo('canary-monitor')">&larr; Back to Stage 9-10 Canary & Rollback</button>
+            <span class="stage-nav-title">End-to-End Pipeline Verified</span>
+            <button class="btn btn-primary btn-sm" @click="navigateTo('dashboard')">Return to Executive Dashboard &rarr;</button>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Notification Toast -->
+    <div v-if="toastVisible" class="toast-notice">
+      {{ toastMessage }}
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -73,3 +73,8 @@ class AuditEntry(BaseModel):
             self.signer,
             self.recorded_at.isoformat(),
         )
+
+    @property
+    def entry_hash(self) -> str:
+        return self.verify_hash()
+

@@ -64,7 +64,11 @@ class SyntheticTransactionGenerator:
         dest = self.rng.choice([a for a in self.accounts if a != origin])
         device = self.rng.choice(self.devices)
         city = self.rng.choice(INDIAN_CITIES)
-        amount = round(self.rng.uniform(100.0, 15000.0), 2)
+        if self.rng.random() < 0.12:
+            amount = round(self.rng.uniform(50000.0, 120000.0), 2)
+        else:
+            amount = round(self.rng.uniform(100.0, 35000.0), 2)
+
 
         return Transaction(
             id=f"TXN-{uuid.uuid4().hex[:12].upper()}",

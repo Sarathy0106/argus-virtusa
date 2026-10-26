@@ -1,0 +1,26 @@
+{
+  "model_name": "ARGUS Calibrated Risk Scorer",
+  "model_version": "lgbm_v1.0_calibrated",
+  "algorithm": "LightGBM + CalibratedClassifierCV(sigmoid)",
+  "features": [
+    "amount",
+    "amount_to_avg_ratio",
+    "velocity_count_1h",
+    "velocity_count_24h",
+    "structuring_window_count_24h",
+    "graph_hop_distance_to_flagged",
+    "shared_device_account_count",
+    "hour_of_day",
+    "is_weekend",
+    "beneficiary_age_hours"
+  ],
+  "metrics": {
+    "roc_auc": 1.0,
+    "brier_score": 2e-05,
+    "training_samples": 4500,
+    "test_samples": 1500,
+    "fraud_prior_pct": 2.5
+  },
+  "artifact_path": "models/fraud_risk_lgbm_v1.joblib",
+  "status": "PRODUCTION_READY"
+}

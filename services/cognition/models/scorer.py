@@ -4,7 +4,10 @@ Computes calibrated fraud/AML risk probability scores and feature attributions.
 """
 
 import math
+from pathlib import Path
 from typing import Any
+import joblib
+import numpy as np
 
 from pydantic import BaseModel, Field
 
@@ -21,18 +24,27 @@ class RiskScoreResult(BaseModel):
     recommended_tier: str  # T0, T1, T2
     top_factors: list[RiskFactor] = Field(default_factory=list)
     model_version: str = "lgb_v0.1_calibrated"
+    is_real_model: bool = False
 
 
 class RiskScorer:
-    def __init__(self, model_version: str = "lgb_v0.1_calibrated"):
+    def __init__(self, model_version: str = "lgbm_v1.0_calibrated"):
         self.model_version = model_version
-        # Base log-odds bias (prior probability ~ 2% in banking)
         self.base_logit = -3.89
+
+        # Attempt to load serialized model artifact
+        self.trained_model = None
+        artifact_path = Path("models/fraud_risk_lgbm_v1.joblib")
+        if artifact_path.exists():
+            try:
+                self.trained_model = joblib.load(artifact_path)
+            except Exception as e:
+                print(f"Warning: Could not load trained ML model artifact: {e}")
 
         # Feature weight attributions
         self.weights = {
             "structuring_window_count_24h": 1.45,
-            "graph_hop_distance_to_flagged": -0.85,  # closer distance (1 or 2) increases risk
+            "graph_hop_distance_to_flagged": -0.85,
             "shared_device_account_count": 0.95,
             "amount_to_avg_ratio": 0.45,
             "velocity_count_24h": 0.35,
@@ -133,9 +145,31 @@ class RiskScorer:
                 )
             )
 
-        # Sigmoid calibration: p = 1 / (1 + exp(-logit))
-        score = 1.0 / (1.0 + math.exp(-logit))
-        score = round(max(0.001, min(0.999, score)), 4)
+        # Score prediction (Real trained LightGBM model or calibrated logit fallback)
+        is_real = False
+        if self.trained_model is not None:
+            try:
+                feature_vector = np.array([[
+                    float(features.get("amount", 1000.0)),
+                    float(features.get("amount_to_avg_ratio", 1.0)),
+                    float(features.get("velocity_count_1h", 0)),
+                    float(features.get("velocity_count_24h", 0)),
+                    float(features.get("structuring_window_count_24h", 0)),
+                    float(features.get("graph_hop_distance_to_flagged", 999)),
+                    float(features.get("shared_device_account_count", 0)),
+                    float(features.get("hour_of_day", 12)),
+                    float(features.get("is_weekend", 0)),
+                    float(features.get("beneficiary_age_hours", 24.0)),
+                ]])
+                proba = self.trained_model.predict_proba(feature_vector)[0][1]
+                score = round(float(proba), 4)
+                is_real = True
+            except Exception:
+                score = 1.0 / (1.0 + math.exp(-logit))
+                score = round(max(0.001, min(0.999, score)), 4)
+        else:
+            score = 1.0 / (1.0 + math.exp(-logit))
+            score = round(max(0.001, min(0.999, score)), 4)
 
         # Risk Bands and Tiers
         if score < 0.35:
@@ -156,5 +190,6 @@ class RiskScorer:
             risk_band=risk_band,
             recommended_tier=recommended_tier,
             top_factors=factors[:5],
-            model_version=self.model_version,
+            model_version="lgbm_v1.0_calibrated" if is_real else self.model_version,
+            is_real_model=is_real,
         )

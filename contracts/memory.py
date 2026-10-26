@@ -43,3 +43,8 @@ class RegulationClause(BaseModel):
     embedding: list[float] | None = Field(
         default=None, description="Vector embedding for retrieval"
     )
+
+    @property
+    def circular_ref(self) -> str:
+        return self.doc_id
+

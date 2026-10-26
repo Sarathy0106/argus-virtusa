@@ -64,6 +64,11 @@ class AuditLedger:
 
         return True
 
+    def verify_chain(self) -> bool:
+        """Alias for verify_integrity."""
+        return self.verify_integrity()
+
+
     def get_by_seq(self, seq: int) -> AuditEntry | None:
         if 1 <= seq <= len(self._chain):
             return self._chain[seq - 1]
