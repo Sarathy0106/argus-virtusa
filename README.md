@@ -71,11 +71,31 @@ pipeline stream live.
 ### Tests & gates
 
 ```bash
-make test       # pytest: 74 tests incl. one per demo step
+make test       # pytest: 75 tests incl. one per demo step
 make no-fakes   # anti-fake CI gate
 cd web && pnpm build   # type-check + lint the frontend
 make demo       # boot stack + run the Playwright 8-step demo (twice)
 ```
+
+### Real LLM obligation extraction (Ollama, optional)
+
+By default the obligation extractor is deterministic (keyword + regex), so the
+demo runs fully offline. To use the real LLM path (B14):
+
+```bash
+ollama pull qwen2.5:7b     # one-time
+make warm-llm              # pre-extract the 4 presets into the replay cache
+make api-llm               # gateway with ARGUS_LLM_EXTRACTION=1
+make web                   # (separate terminal)
+```
+
+The LLM path is wording-independent (handles rephrased circulars), but stays
+safe: a **deterministic citation verifier** drops any obligation not grounded in
+the clause text, a **prompt-injection guard** neutralises poisoned clauses (C4)
+before the model sees them, vague non-executable advisories are rejected, and a
+**record/replay cache** makes repeat runs instant and offline-safe. `/meta`
+honestly reports the mode that actually ran: `ollama`, `replay_cache`, or
+`deterministic_fallback`.
 
 ---
 

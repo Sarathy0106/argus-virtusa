@@ -60,3 +60,7 @@ data/*.json
 *.log
 logs/
 .langfuse/
+
+# LLM record/replay extraction cache (generated; warm with `make warm-llm`)
+data/llm_cache/
+data/user_keys.json

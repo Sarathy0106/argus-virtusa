@@ -32,6 +32,17 @@ up:
 api:
 	$(UVICORN) services.gateway.main:app --host $(API_HOST) --port $(API_PORT) --reload
 
+# Gateway with real LLM obligation extraction (Ollama qwen2.5:7b). Falls back to
+# the deterministic extractor per-clause if Ollama is unreachable; responses are
+# cached (data/llm_cache) so repeat runs are instant and offline-safe.
+api-llm:
+	ARGUS_LLM_EXTRACTION=1 $(UVICORN) services.gateway.main:app --host $(API_HOST) --port $(API_PORT)
+
+# Warm the LLM extraction cache for the 4 preset circulars so the live demo never
+# waits on a cold Ollama call.
+warm-llm:
+	ARGUS_LLM_EXTRACTION=1 $(PYTHON) scripts/warm_llm_cache.py
+
 web:
 	cd web && $(PNPM) dev
 

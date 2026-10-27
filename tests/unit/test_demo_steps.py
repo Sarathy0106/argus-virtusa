@@ -266,3 +266,30 @@ def test_all_sse_ordering_and_resume():
     # Resume from seq 4 loses nothing after it.
     resumed = bus.history("CASE-1", after_seq=4)
     assert [e.seq for e in resumed] == list(range(5, 11))
+
+
+# ---------------------------------------------------------------------------
+# B14: LLM extraction path (uses the warmed replay cache; skips if no cache).
+# ---------------------------------------------------------------------------
+def test_b14_llm_extraction_path():
+    from pathlib import Path
+
+    cache = Path(__file__).resolve().parent.parent.parent / "data" / "llm_cache"
+    if not cache.exists() or not any(cache.iterdir()):
+        import pytest
+
+        pytest.skip("LLM cache not warmed (run `make warm-llm`)")
+
+    from services.agents.obligation_agent import ObligationAgent
+    from services.agents.intake_agent import IntakeAgent
+
+    intake = IntakeAgent()
+    agent = ObligationAgent(use_llm=True)
+
+    # C4 poisoned circular: injection neutralized, no executable obligation.
+    c4 = (CIRCULARS / "C4_poisoned_circular.md").read_text()
+    clauses = intake.process_circular("C4", "C4", c4)["clauses"]
+    obls = agent.extract_obligations(clauses, SAMPLE_BANK_PROFILE)
+    assert all(o.applicability_status.value != "APPLICABLE" for o in obls) or len(obls) == 0
+    # Mode must be one of the honest values.
+    assert agent.last_mode in ("ollama", "replay_cache", "deterministic")

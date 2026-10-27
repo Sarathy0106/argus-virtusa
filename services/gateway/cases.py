@@ -113,6 +113,18 @@ def _run_pipeline_blocking(case_id: str, req: CreateCaseRequest) -> None:
                 stage=5,
             )
 
+        # Report the real obligation-extraction mode for the /meta truth badge.
+        try:
+            from services.gateway.meta import report_extraction_mode
+
+            mode = orch.obligation_agent.last_mode
+            # Normalize to the values the UI truth badge understands.
+            report_extraction_mode(
+                "deterministic_fallback" if mode == "deterministic" else mode
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
         _CASES[case_id]["state"] = orch.state
         _CASES[case_id]["status"] = "COMPLETED"
         bus.emit(

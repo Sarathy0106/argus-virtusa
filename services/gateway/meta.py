@@ -13,16 +13,26 @@ No value in this module is faked. Every field is computed from live state.
 
 from __future__ import annotations
 
+# B14 LLM extraction is wired (Ollama + citation verifier + replay cache). It is
+# enabled when ARGUS_LLM_EXTRACTION=1. The ACTUAL mode that ran a case is reported
+# via report_extraction_mode(); /meta reflects the real mode, not just a flag.
+import os
 import socket
 from urllib.parse import urlparse
 
 from services.config import get_settings
 
-# The pipeline's obligation extractor is deterministic by default (B14). The LLM
-# path is used only when explicitly enabled AND Ollama is reachable; otherwise we
-# honestly report the deterministic fallback. This flag is flipped on only when a
-# real LLM extraction path is wired and healthy.
-LLM_EXTRACTION_ENABLED = False
+LLM_EXTRACTION_ENABLED = os.environ.get("ARGUS_LLM_EXTRACTION", "0") == "1"
+
+# Last obligation-extraction mode observed from a real pipeline run.
+_LAST_EXTRACTION_MODE: str | None = None
+
+
+def report_extraction_mode(mode: str) -> None:
+    """Called by the pipeline runner after each case so /meta can report the mode
+    that actually produced obligations (ollama / replay_cache / deterministic)."""
+    global _LAST_EXTRACTION_MODE
+    _LAST_EXTRACTION_MODE = mode
 
 
 def ollama_reachable(timeout_s: float = 0.25) -> bool:
@@ -41,11 +51,12 @@ def ollama_reachable(timeout_s: float = 0.25) -> bool:
 def probe_llm_mode(timeout_s: float = 0.25) -> str:
     """Honest llm_mode for the UI badge (B14).
 
-    Returns 'ollama' only when the LLM extraction path is actually enabled AND
-    Ollama is reachable. Since the shipped pipeline uses the deterministic
-    extractor, the honest answer is 'deterministic_fallback' even if an Ollama
-    server happens to be listening — the UI must not claim an LLM it isn't using.
+    Prefers the ACTUAL mode of the most recent extraction (ollama / replay_cache /
+    deterministic). Before any case has run, reflects whether the LLM path is
+    enabled and Ollama is reachable; otherwise the honest deterministic fallback.
     """
+    if _LAST_EXTRACTION_MODE:
+        return _LAST_EXTRACTION_MODE
     if LLM_EXTRACTION_ENABLED and ollama_reachable(timeout_s):
         return "ollama"
     return "deterministic_fallback"

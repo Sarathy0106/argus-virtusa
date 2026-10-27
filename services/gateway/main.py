@@ -62,8 +62,11 @@ app.add_middleware(
 )
 
 # Single v2 orchestrator instance. Pipeline bootstrap is best-effort so the API
-# can boot (and /meta can answer) even if a stage is mid-rebuild.
+# can boot (and /meta can answer) even if a stage is mid-rebuild. The bootstrap
+# run always uses the deterministic extractor so boot is fast even when LLM
+# extraction is enabled — real user-triggered cases still use the LLM path.
 v2_orchestrator = V2StateMachine()
+v2_orchestrator.obligation_agent.use_llm = False
 try:
     v2_orchestrator.run_pipeline(
         circular_text=SAMPLE_CIRCULAR_TEXT,
