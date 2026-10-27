@@ -5,7 +5,7 @@ the draft candidate rule within an isolated sandbox environment.
 """
 
 import time
-from typing import Any
+
 from pydantic import BaseModel, Field
 
 from contracts.agents import AgentCard, AgentSkill
@@ -14,6 +14,13 @@ from contracts.transactions import Transaction
 from services.agents.crypto import AgentKeyPair
 from services.policy.engine import PolicyEngine
 from services.regcompiler.dsl_compiler import RuleDSLCompiler
+
+
+class SegmentCount(BaseModel):
+    segment: str
+    baseline_alerts: int
+    candidate_alerts: int
+    delta_alerts: int
 
 
 class BacktestResult(BaseModel):
@@ -28,6 +35,9 @@ class BacktestResult(BaseModel):
     flagged_txn_ids: list[str] = Field(default_factory=list)
     avg_latency_ms: float = 0.0
     sandbox_status: str = "COMPLETED"
+    segments: list[SegmentCount] = Field(default_factory=list)
+    ops_hours_per_day: float = 0.0
+    data_source: str = "synthetic_in_memory"
 
 
 class BacktestAgent:
@@ -54,14 +64,52 @@ class BacktestAgent:
             ],
         )
 
+    def run_duckdb_backtest(
+        self,
+        rule_def: RuleDefinition,
+        baseline: RuleDefinition | None = None,
+        progress_cb=None,
+    ) -> BacktestResult:
+        """Real backtest over the 500k parquet via DuckDB (B5). All counts come
+        from SQL aggregation over actual rows."""
+        from services.backtest.duck import DuckBacktestEngine
+
+        engine = DuckBacktestEngine()
+        r = engine.run(rule_def, baseline=baseline, progress_cb=progress_cb)
+        return BacktestResult(
+            rule_name=r.rule_name,
+            rule_version=r.rule_version,
+            total_txns=r.total_rows,
+            baseline_alerts=r.baseline_alerts,
+            candidate_alerts=r.candidate_alerts,
+            delta_alerts=r.delta_alerts,
+            delta_percentage=r.delta_percentage,
+            total_flagged_volume=r.candidate_flagged_volume_inr,
+            ops_hours_per_day=r.ops_hours_per_day,
+            segments=[
+                SegmentCount(
+                    segment=s.segment,
+                    baseline_alerts=s.baseline_alerts,
+                    candidate_alerts=s.candidate_alerts,
+                    delta_alerts=s.delta_alerts,
+                )
+                for s in r.segments
+            ],
+            data_source="duckdb_500k_parquet",
+        )
+
     def run_backtest(
-        self, rule_def: RuleDefinition, transactions: list[Transaction]
+        self, rule_def: RuleDefinition, transactions: list[Transaction] | None = None
     ) -> BacktestResult:
         """
         Executes Stage 5 Backtesting:
         Replays transactions across baseline policy engine vs candidate RuleDefinition.
         """
         t0 = time.perf_counter()
+        if transactions is None:
+            from services.ingest.simulator import SyntheticTransactionGenerator
+            gen = SyntheticTransactionGenerator(seed=42)
+            transactions = gen.generate_dataset(100)
         total = len(transactions)
         baseline_hits = 0
         candidate_hits = 0

@@ -17,12 +17,13 @@ import json
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, File, Form, Header, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from services.backtest.duck import DuckBacktestEngine
 from services.events.bus import get_event_bus
+from services.gateway.upload import UnsupportedUploadError, extract_text
 from services.orchestrator.v2_state_machine import (
     SAMPLE_BANK_PROFILE,
     SAMPLE_CIRCULAR_TEXT,
@@ -121,13 +122,86 @@ def _run_pipeline_blocking(case_id: str, req: CreateCaseRequest) -> None:
         bus.emit(case_id, "stage.completed", {"error": str(exc), "failed": True})
 
 
+PRESETS: dict[str, str] = {}
+
+
+def _load_presets() -> dict[str, str]:
+    """Load the four bundled circulars (C1-C4) as presets from data/circulars."""
+    global PRESETS
+    if PRESETS:
+        return PRESETS
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent.parent / "data" / "circulars"
+    mapping = {
+        "C1": "C1_cash_deposit_edd.md",
+        "C2": "C2_coop_nbfc_lending.md",
+        "C3": "C3_upi_merchant_limits.md",
+        "C4": "C4_poisoned_circular.md",
+    }
+    for pid, fname in mapping.items():
+        fp = root / fname
+        if fp.exists():
+            PRESETS[pid] = fp.read_text(encoding="utf-8")
+    return PRESETS
+
+
+@router.get("/presets/list")
+async def list_presets() -> dict[str, Any]:
+    presets = _load_presets()
+    return {"presets": [{"id": pid, "title": pid} for pid in presets]}
+
+
 @router.post("")
-async def create_case(req: CreateCaseRequest) -> dict[str, Any]:
-    """Start a pipeline run and return the case_id immediately (B2)."""
+async def create_case(
+    request: Request,
+    file: UploadFile | None = File(default=None),
+    preset_id: str | None = Form(default=None),
+    circular_id: str | None = Form(default=None),
+    circular_title: str | None = Form(default=None),
+    circular_text: str | None = Form(default=None),
+) -> dict[str, Any]:
+    """
+    Start a pipeline run and return case_id immediately (B2 + B3).
+
+    Accepts either multipart (a PDF/MD/TXT `file`, or form fields) OR a JSON body
+    with the same fields. An uploaded PDF is text-extracted via pdfplumber and run
+    through the same Airlock + clause chunker as presets.
+    """
+    req = CreateCaseRequest(
+        preset_id=preset_id,
+        circular_id=circular_id,
+        circular_title=circular_title,
+        circular_text=circular_text,
+    )
+
+    # JSON body fallback (no multipart fields present).
+    if file is None and not any([preset_id, circular_text]):
+        ctype = request.headers.get("content-type", "")
+        if ctype.startswith("application/json"):
+            body = await request.json()
+            req = CreateCaseRequest(**body)
+
+    # Resolve the circular text from the various input modes.
+    if file is not None:
+        content = await file.read()
+        try:
+            text = extract_text(file.filename or "upload", content)
+        except UnsupportedUploadError as exc:
+            return {"error": str(exc)}, 400
+        req.circular_text = text
+        req.circular_title = req.circular_title or (file.filename or "Uploaded circular")
+        req.circular_id = req.circular_id or f"UP-{uuid.uuid4().hex[:6]}"
+    elif req.preset_id:
+        presets = _load_presets()
+        if req.preset_id in presets:
+            req.circular_text = presets[req.preset_id]
+            req.circular_id = req.circular_id or req.preset_id
+            req.circular_title = req.circular_title or req.preset_id
+
     case_id = f"CASE-{uuid.uuid4().hex[:10]}"
     _CASES[case_id] = {"status": "RUNNING", "orchestrator": None, "state": None}
     get_event_bus().bind_loop(asyncio.get_running_loop())
-    # Fire-and-forget background task.
     asyncio.create_task(asyncio.to_thread(_run_pipeline_blocking, case_id, req))
     return {"case_id": case_id, "status": "RUNNING"}
 

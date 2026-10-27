@@ -355,12 +355,16 @@ class RegulatoryRuleOrchestrator:
                 iteration=iteration,
             )
 
-            # STAGE 5: Backtesting
+            # STAGE 5: Backtesting over the real 500k dataset (DuckDB). Falls back
+            # to the in-memory sandbox only if the parquet is unavailable.
             state.current_stage = 5
             state.stage_name = "BACKTESTING"
-            backtest_res = self.backtest_agent.run_backtest(
-                rule_def=rule_def, transactions=historical_txns
-            )
+            try:
+                backtest_res = self.backtest_agent.run_duckdb_backtest(rule_def=rule_def)
+            except Exception:
+                backtest_res = self.backtest_agent.run_backtest(
+                    rule_def=rule_def, transactions=historical_txns
+                )
 
             # STAGE 6: Impact Analysis
             state.current_stage = 6
