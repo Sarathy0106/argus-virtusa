@@ -249,6 +249,57 @@ async def get_case(case_id: str) -> dict[str, Any]:
     }
 
 
+@router.get("/{case_id}/detail")
+async def get_case_detail(case_id: str) -> dict[str, Any]:
+    """Full case detail for the UI pages: obligations (with applicability),
+    policy mapping, and per-obligation bundles with objections. All derived from
+    the real pipeline state."""
+    case = _CASES.get(case_id)
+    if not case or case.get("state") is None:
+        return {"case_id": case_id, "status": case.get("status") if case else "UNKNOWN"}
+    state = case["state"]
+
+    obligations = [
+        {
+            "id": o.id,
+            "clause_id": o.clause_id,
+            "actor": o.actor,
+            "rule_ref": o.rule_ref,
+            "condition": o.condition_json,
+            "action": o.action_json,
+            "deadline": o.deadline,
+            "applicability": o.applicability_status.value,
+            "rationale": o.applicability_rationale,
+        }
+        for o in state.obligations
+    ]
+    mappings = []
+    if state.policy_mapping:
+        for m in state.policy_mapping.mappings:
+            mappings.append(
+                {
+                    "obligation_id": m.obligation_id,
+                    "clause_id": m.clause_id,
+                    "conflict_type": getattr(m.conflict_type, "value", str(m.conflict_type)),
+                    "existing_rule_ref": m.existing_rule_ref,
+                    "description": m.description,
+                    "suggested_resolution": m.suggested_resolution,
+                }
+            )
+    return {
+        "case_id": case_id,
+        "status": case.get("status"),
+        "circular_id": state.circular_id,
+        "clause_count": len(state.clauses),
+        "obligations": obligations,
+        "mappings": mappings,
+        "bundles": [
+            {k: v for k, v in b.items() if not k.startswith("_")} for b in state.bundles
+        ],
+        "selected_bundle_index": state.selected_bundle_index,
+    }
+
+
 @router.get("/{case_id}/events")
 async def stream_events(
     case_id: str,

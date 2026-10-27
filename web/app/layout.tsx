@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "../styles/globals.css";
+import { Providers } from "./providers";
 
 // Fonts are declared as CSS stacks in styles/tokens.css to keep the build fully
 // offline-safe (no build-time Google Fonts fetch). R6 polish can swap in
@@ -17,7 +18,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-bg text-text antialiased">{children}</body>
+      <body className="min-h-screen bg-bg text-text antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
