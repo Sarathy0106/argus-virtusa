@@ -12,7 +12,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import streamlit as st
-import streamlit.components.v1 as components
+
 from services.orchestrator.v2_state_machine import RegulatoryRuleOrchestrator
 from ui.theme import (
     inject_custom_css,
@@ -159,7 +159,7 @@ mesh_html = """
     </svg>
 </div>
 """
-components.html(mesh_html, height=400)
+st.html(mesh_html)
 
 st.markdown("#### 📨 Cryptographic A2A Message Packet Inspector")
 st.markdown(

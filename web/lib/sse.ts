@@ -13,11 +13,18 @@ export type ArgusEvent = {
   entry_hash?: string | null;
 };
 
+// SSE must bypass the Next.js rewrite proxy: that proxy buffers streaming
+// responses, so EventSource through :3000 receives nothing. Connect the stream
+// directly to the gateway instead (CORS is allowed for the web origin). REST
+// calls still go through the same-origin proxy.
+const SSE_BASE =
+  process.env.NEXT_PUBLIC_ARGUS_SSE_BASE ?? "http://localhost:8000";
+
 export function subscribeCaseEvents(
   caseId: string,
   onEvent: (ev: ArgusEvent) => void,
 ): () => void {
-  const url = `/api/v2/cases/${caseId}/events`;
+  const url = `${SSE_BASE}/api/v2/cases/${caseId}/events`;
   const es = new EventSource(url);
 
   const handler = (e: MessageEvent) => {

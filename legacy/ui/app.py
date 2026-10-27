@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import json
+
 import streamlit as st
 
 from contracts.bank_profile import BankProfile
@@ -44,7 +45,7 @@ orch = st.session_state.orchestrator
 if "bank_profile" not in st.session_state:
     profile_path = REPO_ROOT / "data" / "bank_profile.json"
     if profile_path.exists():
-        with open(profile_path, "r", encoding="utf-8") as f:
+        with open(profile_path, encoding="utf-8") as f:
             st.session_state.bank_profile = BankProfile(**json.load(f))
     else:
         st.session_state.bank_profile = None
