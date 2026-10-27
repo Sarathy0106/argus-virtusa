@@ -41,13 +41,16 @@ export default function ApprovalsPage() {
       bundle_hash: bundleHash,
       rule_name: ruleName,
       token: tokens[uid],
+      case_id: caseId,
     });
     refreshApproval();
   }
 
   async function refreshApproval() {
     if (!bundleHash) return;
-    const a = await apiGet<Record<string, unknown>>(`/api/v2/approvals/${bundleHash}`);
+    const a = await apiGet<Record<string, unknown>>(
+      `/api/v2/approvals/${bundleHash}?case_id=${caseId}`,
+    );
     setApproval(a);
   }
 

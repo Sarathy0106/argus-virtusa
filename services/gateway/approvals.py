@@ -47,6 +47,7 @@ class SignRequest(BaseModel):
     bundle_hash: str
     rule_name: str = "bundle"
     token: str  # JWT from /auth/login
+    case_id: str | None = None  # scopes the approval to a specific case
 
 
 def _decode(token: str) -> dict[str, Any]:
@@ -88,6 +89,10 @@ def list_users() -> dict[str, Any]:
     }
 
 
+def _approval_key(case_id: str | None, bundle_hash_val: str) -> str:
+    return f"{case_id or '-'}::{bundle_hash_val}"
+
+
 def _sign(role_expected: str, req: SignRequest) -> dict[str, Any]:
     claims = _decode(req.token)
     user_id = claims["sub"]
@@ -95,8 +100,9 @@ def _sign(role_expected: str, req: SignRequest) -> dict[str, Any]:
     # The user signs the exact bundle hash with their own private key.
     signature = kp.sign_payload({"bundle_hash": req.bundle_hash, "rule_name": req.rule_name})
 
+    key = _approval_key(req.case_id, req.bundle_hash)
     record = _APPROVALS.setdefault(
-        req.bundle_hash, {"rule_name": req.rule_name, "maker": None, "checker": None}
+        key, {"rule_name": req.rule_name, "maker": None, "checker": None}
     )
     slot = "maker" if role_expected == "maker" else "checker"
     record[slot] = {
@@ -127,8 +133,8 @@ def sign_checker(req: SignRequest) -> dict[str, Any]:
 
 
 @router.get("/approvals/{bundle_hash}")
-def approval_status(bundle_hash: str) -> dict[str, Any]:
-    rec = _APPROVALS.get(bundle_hash)
+def approval_status(bundle_hash: str, case_id: str | None = None) -> dict[str, Any]:
+    rec = _APPROVALS.get(_approval_key(case_id, bundle_hash))
     if not rec:
         return {"bundle_hash": bundle_hash, "maker": None, "checker": None, "both_signed": False}
     return {
@@ -139,10 +145,12 @@ def approval_status(bundle_hash: str) -> dict[str, Any]:
     }
 
 
-def verify_dual_signatures(bundle_hash_val: str, rule_name: str) -> tuple[bool, str]:
+def verify_dual_signatures(
+    bundle_hash_val: str, rule_name: str, case_id: str | None = None
+) -> tuple[bool, str]:
     """Verify both signatures against the two public keys. Enforces:
     both present, distinct users, and both valid over the exact bundle hash."""
-    rec = _APPROVALS.get(bundle_hash_val)
+    rec = _APPROVALS.get(_approval_key(case_id, bundle_hash_val))
     if not rec or not rec.get("maker") or not rec.get("checker"):
         return False, "Deployment requires BOTH maker and checker signatures."
     maker, checker = rec["maker"], rec["checker"]

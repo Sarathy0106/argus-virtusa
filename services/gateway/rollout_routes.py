@@ -84,7 +84,7 @@ def deploy(case_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="No rule bundle to deploy")
 
     b_hash = bundle_hash(rule.model_dump(mode="json"))
-    ok, reason = verify_dual_signatures(b_hash, rule.rule_name)
+    ok, reason = verify_dual_signatures(b_hash, rule.rule_name, case_id=case_id)
     if not ok:
         # Real 403 when signatures are missing/mismatched/tampered (B7).
         raise HTTPException(status_code=403, detail=reason)
