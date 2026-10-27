@@ -27,8 +27,10 @@ from pydantic import BaseModel
 
 from services.config import get_settings
 from services.events.bus import get_event_bus
+from services.gateway.approvals import router as approvals_router
 from services.gateway.cases import router as cases_router
 from services.gateway.meta import probe_llm_mode
+from services.gateway.rollout_routes import router as rollout_router
 from services.ledger.ledger import AuditChainIntegrityError
 from services.orchestrator.v2_state_machine import (
     SAMPLE_BANK_PROFILE,
@@ -266,3 +268,5 @@ async def _bind_event_loop() -> None:
 
 app.include_router(v2)
 app.include_router(cases_router)
+app.include_router(approvals_router)
+app.include_router(rollout_router)

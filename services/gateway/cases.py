@@ -36,6 +36,11 @@ router = APIRouter(prefix="/api/v2/cases", tags=["ARGUS v2 Cases"])
 _CASES: dict[str, dict[str, Any]] = {}
 
 
+def get_case_record(case_id: str) -> dict[str, Any] | None:
+    """Accessor for other routers (approvals/deploy/audit)."""
+    return _CASES.get(case_id)
+
+
 class CreateCaseRequest(BaseModel):
     preset_id: str | None = None
     circular_id: str | None = None
@@ -221,11 +226,26 @@ async def get_case(case_id: str) -> dict[str, Any]:
     case = _CASES.get(case_id)
     if not case:
         return {"case_id": case_id, "status": "UNKNOWN"}
+    state = case.get("state")
+    bundle = None
+    b_hash = None
+    bundles = []
+    if state is not None:
+        bundles = state.bundles
+        if state.rule_definition is not None:
+            from services.gateway.approvals import bundle_hash
+
+            bundle = state.rule_definition.model_dump(mode="json")
+            b_hash = bundle_hash(bundle)
     return {
         "case_id": case_id,
         "status": case.get("status"),
         "backtest": case.get("backtest"),
         "error": case.get("error"),
+        "bundle_count": len(bundles),
+        "selected_bundle": bundle,
+        "bundle_hash": b_hash,
+        "rule_name": bundle.get("rule_name") if bundle else None,
     }
 
 

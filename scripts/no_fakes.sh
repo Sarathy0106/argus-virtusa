@@ -38,9 +38,11 @@ scan() {
   for p in "$@"; do [[ -e "$p" ]] && paths+=("$p"); done
   [[ ${#paths[@]} -eq 0 ]] && return 0
   if [[ $have_rg -eq 1 ]]; then
+    # rg skips binary files and respects .gitignore (so __pycache__ is excluded).
     rg -n --no-heading -i -e "$pattern" "${paths[@]}" 2>/dev/null
   else
-    grep -rniE "$pattern" "${paths[@]}" 2>/dev/null
+    grep -rniE --binary-files=without-match \
+      --exclude-dir=__pycache__ --exclude='*.pyc' "$pattern" "${paths[@]}" 2>/dev/null
   fi
 }
 
