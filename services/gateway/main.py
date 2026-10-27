@@ -26,6 +26,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from services.config import get_settings
+from services.events.bus import get_event_bus
+from services.gateway.cases import router as cases_router
 from services.gateway.meta import probe_llm_mode
 from services.ledger.ledger import AuditChainIntegrityError
 from services.orchestrator.v2_state_machine import (
@@ -252,4 +254,14 @@ def trigger_v2_rollback():
     }
 
 
+@app.on_event("startup")
+async def _bind_event_loop() -> None:
+    # Bind the running loop so the event bus can deliver to SSE subscribers from
+    # worker threads.
+    import asyncio
+
+    get_event_bus().bind_loop(asyncio.get_running_loop())
+
+
 app.include_router(v2)
+app.include_router(cases_router)
