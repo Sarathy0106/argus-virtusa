@@ -9,6 +9,7 @@ Circular Intake -> Obligation Extraction & Applicability -> Policy Mapping
 
 from datetime import datetime, timezone
 from typing import Any
+
 from pydantic import BaseModel, Field
 
 from contracts.bank_profile import BankProfile, BankType, ProductType
@@ -21,7 +22,7 @@ from contracts.deployment import (
 )
 from contracts.memory import RegulationClause
 from contracts.obligations import RegulatoryObligation
-from contracts.policy_mapping import ConflictStatus, PolicyMappingResult
+from contracts.policy_mapping import PolicyMappingItem, PolicyMappingResult
 from contracts.rule_dsl import RuleDefinition
 from contracts.transactions import Transaction
 from contracts.validation import ObjectionTargetStage, ValidationObjection, ValidationReport
@@ -61,10 +62,13 @@ class V2WorkflowState(BaseModel):
     # Stage 3
     policy_mapping: PolicyMappingResult | None = None
 
-    # Stage 4
+    # Stage 4 — one bundle per applicable obligation (B4). `rule_definition` is
+    # the currently-selected bundle for backward compatibility / single-rule views.
     rule_definition: RuleDefinition | None = None
     compiled_rego: str | None = None
     compiled_tests: str | None = None
+    bundles: list[dict[str, Any]] = Field(default_factory=list)
+    selected_bundle_index: int = 0
 
     # Stage 5
     backtest_result: BacktestResult | None = None
@@ -136,18 +140,18 @@ class RegulatoryRuleOrchestrator:
         )
 
         # Register cards in broker
-        for agent in [
-            self.intake_agent,
-            self.obligation_agent,
-            self.policy_mapper_agent,
-            self.rule_author_agent,
-            self.backtest_agent,
-            self.impact_agent,
-            self.validator_agent,
-            self.deployment_agent,
-            self.monitor_agent,
+        for card in [
+            self.intake_agent.card,
+            self.obligation_agent.card,
+            self.policy_mapper_agent.card,
+            self.rule_author_agent.card,
+            self.backtest_agent.card,
+            self.impact_agent.card,
+            self.validator_agent.card,
+            self.deployment_agent.card,
+            self.monitor_agent.card,
         ]:
-            self.broker.register_agent(agent.card)
+            self.broker.register_agent(card)
 
         self.ledger = self.audit_ledger
         self.state: V2WorkflowState | None = None
@@ -208,7 +212,8 @@ class RegulatoryRuleOrchestrator:
                 triggered_by="MANUAL_OPERATOR_OVERRIDE"
             )
             self.state.rollback_record = rec
-            self.state.current_stage = DeploymentStage.ROLLED_BACK
+            self.state.current_stage = 10
+            self.state.deployment_stage = DeploymentStage.ROLLED_BACK
             self.state.stage_name = "ROLLED_BACK"
             self._log_stage(
                 self.state,
@@ -222,12 +227,16 @@ class RegulatoryRuleOrchestrator:
         circular_title: str,
         circular_text: str,
         bank_profile: BankProfile,
-        historical_txns: list[Transaction],
+        historical_txns: list[Transaction] | None = None,
         simulate_objection_loop: bool = True,
     ) -> V2WorkflowState:
         """
         Executes Stages 1 through 7 (with Objection Loop), pausing at Stage 8 for Human Approval.
         """
+        if historical_txns is None:
+            gen = SyntheticTransactionGenerator(seed=42)
+            historical_txns = gen.generate_dataset(100)
+
         state = V2WorkflowState(
             circular_id=circular_id,
             circular_title=circular_title,
@@ -270,9 +279,7 @@ class RegulatoryRuleOrchestrator:
             state.stage_name = "COMPLETED_NOT_APPLICABLE"
             return state
 
-        target_obligation = state.applicable_obligations[0]
-
-        # STAGE 3: Policy Mapping
+        # STAGE 3: Policy Mapping (for all applicable obligations)
         state.current_stage = 3
         state.stage_name = "POLICY_MAPPING"
         mapping_result = self.policy_mapper_agent.map_obligations(
@@ -288,24 +295,65 @@ class RegulatoryRuleOrchestrator:
             },
         )
 
-        # OBJECTION LOOP (Stages 4, 5, 6, 7 with iterative resolution)
-        target_mapping = mapping_result.mappings[0] if mapping_result.mappings else None
-        active_objection: ValidationObjection | None = None
+        mapping_by_obl = {m.obligation_id: m for m in mapping_result.mappings}
 
-        while state.iteration_count <= state.max_iterations:
+        # STAGES 4-7: produce ONE bundle per applicable obligation (B4). Each
+        # bundle runs the objection loop independently.
+        for obl in state.applicable_obligations:
+            target_mapping = mapping_by_obl.get(obl.id)
+            bundle = self._author_and_validate_obligation(
+                state=state,
+                obligation=obl,
+                mapping=target_mapping,
+                historical_txns=historical_txns,
+                simulate_objection_loop=simulate_objection_loop,
+            )
+            state.bundles.append(bundle)
+
+        # Select the first bundle whose rule passed validation (prefer one that
+        # went through an objection loop) as the primary for single-rule views.
+        primary_idx = 0
+        for i, b in enumerate(state.bundles):
+            if b.get("validation_passed"):
+                primary_idx = i
+                if b.get("iterations", 1) > 1:
+                    break
+        self._select_bundle(state, primary_idx)
+
+        # STAGE 8: Paused for Human Approval
+        state.current_stage = 8
+        state.stage_name = "HUMAN_APPROVAL_PENDING"
+        return state
+
+    def _author_and_validate_obligation(
+        self,
+        state: V2WorkflowState,
+        obligation: RegulatoryObligation,
+        mapping: PolicyMappingItem | None,
+        historical_txns: list[Transaction] | None,
+        simulate_objection_loop: bool,
+    ) -> dict[str, Any]:
+        """Run the Stage 4-7 objection loop for a single obligation and return a
+        serializable bundle snapshot."""
+        iteration = 1
+        active_objection: ValidationObjection | None = None
+        objections: list[ValidationObjection] = []
+        rule_def = None
+        rego = tests = ""
+        backtest_res = None
+        impact_res = None
+        val_report = None
+
+        while iteration <= state.max_iterations:
             # STAGE 4: Rule Authoring
             state.current_stage = 4
             state.stage_name = "RULE_AUTHORING"
             rule_def, rego, tests = self.rule_author_agent.author_rule(
-                obligation=target_obligation,
-                mapping=target_mapping,
+                obligation=obligation,
+                mapping=mapping,
                 objection=active_objection,
-                iteration=state.iteration_count if simulate_objection_loop else 2,
+                iteration=iteration,
             )
-            state.rule_definition = rule_def
-            state.compiled_rego = rego
-            state.compiled_tests = tests
-            state.traceability_graph = self.compiler.build_traceability_graph(rule_def)
 
             # STAGE 5: Backtesting
             state.current_stage = 5
@@ -313,13 +361,11 @@ class RegulatoryRuleOrchestrator:
             backtest_res = self.backtest_agent.run_backtest(
                 rule_def=rule_def, transactions=historical_txns
             )
-            state.backtest_result = backtest_res
 
             # STAGE 6: Impact Analysis
             state.current_stage = 6
             state.stage_name = "IMPACT_ANALYSIS"
             impact_res = self.impact_agent.analyze_impact(backtest_res)
-            state.impact_report = impact_res
 
             # STAGE 7: Validation Gate
             state.current_stage = 7
@@ -327,55 +373,91 @@ class RegulatoryRuleOrchestrator:
             val_report = self.validator_agent.validate_draft_rule(
                 rule_def=rule_def,
                 mapping_result=state.policy_mapping,
-                iteration=state.iteration_count,
+                iteration=iteration,
             )
-            state.validation_report = val_report
 
-            if val_report.passed and (not impact_res.objection):
+            if val_report.passed and not impact_res.objection:
                 self._log_stage(
                     state,
                     "STAGE_7_VALIDATION_PASSED",
-                    {"certificate_id": val_report.certificate_id, "iteration": state.iteration_count},
-                )
-                break
-            else:
-                # OBJECTION DETECTED -> RE-ROUTE
-                raised_objections = val_report.objections + (
-                    [impact_res.objection] if impact_res.objection else []
-                )
-                active_objection = raised_objections[0]
-                state.objection_history.append(active_objection)
-
-                self._log_stage(
-                    state,
-                    "STAGE_7_OBJECTION_RAISED",
                     {
-                        "code": active_objection.code.value,
-                        "target_stage": active_objection.target_stage.value,
-                        "iteration": state.iteration_count,
-                        "message": active_objection.message,
+                        "certificate_id": val_report.certificate_id,
+                        "iteration": iteration,
+                        "obligation_id": obligation.id,
                     },
                 )
+                break
 
-                # Re-route based on target_stage
-                if active_objection.target_stage == ObjectionTargetStage.POLICY_MAPPING:
-                    # Resolve conflict in policy mapper
-                    if target_mapping:
-                        self.policy_mapper_agent.resolve_mapping_conflict(
-                            target_mapping, resolution_choice="LOWER_LIMIT_AND_ADD_COOLING"
-                        )
+            raised = list(val_report.objections) + (
+                [impact_res.objection] if impact_res.objection else []
+            )
+            active_objection = raised[0]
+            objections.append(active_objection)
+            state.objection_history.append(active_objection)
+            self._log_stage(
+                state,
+                "STAGE_7_OBJECTION_RAISED",
+                {
+                    "code": active_objection.code.value,
+                    "target_stage": active_objection.target_stage.value,
+                    "iteration": iteration,
+                    "obligation_id": obligation.id,
+                    "message": active_objection.message,
+                },
+            )
+
+            if active_objection.target_stage == ObjectionTargetStage.POLICY_MAPPING and mapping:
+                self.policy_mapper_agent.resolve_mapping_conflict(
+                    mapping, resolution_choice="SUPERSEDE_AND_RESCOPE"
+                )
+                if state.policy_mapping:
                     state.policy_mapping.compute_summary()
 
-                state.iteration_count += 1
-                if state.iteration_count > state.max_iterations:
-                    raise RuntimeError(
-                        f"Objection loop exceeded maximum iterations ({state.max_iterations}). Halting for human intervention."
-                    )
+            iteration += 1
+            if iteration > state.max_iterations:
+                # Bounded loop: escalate to a human rather than looping forever.
+                self._log_stage(
+                    state,
+                    "STAGE_7_ESCALATED_TO_HUMAN",
+                    {"obligation_id": obligation.id, "iterations": iteration - 1},
+                )
+                break
 
-        # STAGE 8: Paused for Human Approval
-        state.current_stage = 8
-        state.stage_name = "HUMAN_APPROVAL_PENDING"
-        return state
+        return {
+            "obligation_id": obligation.id,
+            "clause_id": obligation.clause_id,
+            "rule_definition": rule_def.model_dump(mode="json") if rule_def else None,
+            "rego": rego,
+            "tests": tests,
+            "iterations": iteration,
+            "validation_passed": bool(val_report.passed) if val_report else False,
+            "objections": [o.model_dump(mode="json") for o in objections],
+            "backtest": backtest_res.model_dump(mode="json") if backtest_res else None,
+            "impact": impact_res.model_dump(mode="json") if impact_res else None,
+            "_rule_obj": rule_def,
+            "_backtest_obj": backtest_res,
+            "_impact_obj": impact_res,
+            "_validation_obj": val_report,
+        }
+
+    def _select_bundle(self, state: V2WorkflowState, index: int) -> None:
+        """Point the single-rule view fields at bundle `index`."""
+        if not state.bundles:
+            return
+        index = max(0, min(index, len(state.bundles) - 1))
+        state.selected_bundle_index = index
+        b = state.bundles[index]
+        state.rule_definition = b.get("_rule_obj")
+        state.compiled_rego = b.get("rego") or ""
+        state.compiled_tests = b.get("tests") or ""
+        state.backtest_result = b.get("_backtest_obj")
+        state.impact_report = b.get("_impact_obj")
+        state.validation_report = b.get("_validation_obj")
+        state.iteration_count = b.get("iterations", 1)
+        if state.rule_definition:
+            state.traceability_graph = self.compiler.build_traceability_graph(
+                state.rule_definition
+            )
 
     def grant_dual_approval(
         self,
@@ -577,12 +659,29 @@ Cross-border RTGS payments for non-resident corporate entities shall be subject 
 Effective deadline: w.e.f 2025-01-01.
 """
 
+# The demo bank is a Scheduled Commercial Bank offering retail deposits, UPI and
+# cross-border RTGS. This makes C1 (cash EDD) and C3 (UPI MCC caps) APPLICABLE
+# and C2 (Urban Co-operative Banks / NBFCs only) correctly NOT applicable.
 SAMPLE_BANK_PROFILE = BankProfile(
-    bank_id="APEX_IN_001",
-    bank_name="Argus Commercial Bank Ltd",
+    bank_id="MERIDIAN_IN_001",
+    bank_name="Meridian Bank Ltd",
     bank_type=BankType.SCHEDULED_COMMERCIAL_BANK,
-    licenses=["RETAIL_BANKING", "COMMERCIAL_BANKING", "PAYMENT_SYSTEM_OPERATOR"],
-    active_products=[ProductType.UPI, ProductType.IMPS],
-    supported_channels=["UPI", "MOBILE", "NET_BANKING"],
+    licenses=[
+        "SCHEDULED_COMMERCIAL_BANKING",
+        "RETAIL_BANKING",
+        "COMMERCIAL_BANKING",
+        "PAYMENT_SYSTEM_OPERATOR",
+        "FOREX_AD_CAT1",
+    ],
+    active_products=[
+        ProductType.UPI,
+        ProductType.IMPS,
+        ProductType.RTGS,
+        ProductType.NEFT,
+        ProductType.CREDIT_CARD,
+        ProductType.RETAIL_DEPOSITS,
+        ProductType.FOREX_REMITTANCE,
+    ],
+    supported_channels=["UPI", "MOBILE", "NET_BANKING", "ATM", "BRANCH", "RTGS", "IMPS"],
 )
 

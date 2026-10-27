@@ -54,6 +54,16 @@ class RuleDefinition(BaseModel):
     action: DSLAction
     test_cases: list[DSLTestCase] = Field(default_factory=list)
     draft_status: str = Field(default="DRAFT_ONLY", description="DRAFT_ONLY until dual approved")
+    supersedes: list[str] = Field(
+        default_factory=list,
+        description="Live rule IDs this draft resolves/supersedes (set once the "
+        "objection-loop conflict is resolved). Empty on the naive first draft.",
+    )
+    conflict_resolved: bool = Field(
+        default=False,
+        description="True once the author has applied the mapping's conflict "
+        "resolution. The naive first draft leaves this False.",
+    )
 
     def to_yaml(self) -> str:
         return yaml.dump(self.model_dump(), sort_keys=False)

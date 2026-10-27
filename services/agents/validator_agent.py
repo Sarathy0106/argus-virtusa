@@ -8,10 +8,9 @@ Deterministic pass/fail gate enforcing:
 Emits structured ValidationObjections to re-route via the Objection Loop.
 """
 
-import uuid
 from contracts.agents import AgentCard, AgentSkill
-from contracts.policy_mapping import ConflictStatus, PolicyMappingResult
-from contracts.rule_dsl import RuleDefinition
+from contracts.policy_mapping import ConflictType, PolicyMappingResult
+from contracts.rule_dsl import DSLOperator, RuleDefinition
 from contracts.validation import (
     ObjectionCode,
     ObjectionTargetStage,
@@ -20,6 +19,17 @@ from contracts.validation import (
 )
 from services.agents.crypto import AgentKeyPair
 from services.regcompiler.dsl_compiler import RuleDSLCompiler
+from services.regcompiler.z3_prover import Z3RuleProver
+
+# DSL operator -> the lowercase op token the Z3 prover expects.
+_OP_TO_Z3 = {
+    DSLOperator.GTE: "gte",
+    DSLOperator.LTE: "lte",
+    DSLOperator.EQ: "eq",
+    DSLOperator.NEQ: "neq",
+    DSLOperator.IN: "in",
+    DSLOperator.NOT_IN: "not_in",
+}
 
 
 class ValidatorAgent:
@@ -27,9 +37,11 @@ class ValidatorAgent:
         self,
         key_pair: AgentKeyPair | None = None,
         compiler: RuleDSLCompiler | None = None,
+        z3_prover: Z3RuleProver | None = None,
     ):
         self.key_pair = key_pair or AgentKeyPair()
         self.compiler = compiler or RuleDSLCompiler()
+        self.z3_prover = z3_prover or Z3RuleProver()
         self.agent_id = "agent.validator"
         self.card = AgentCard(
             agent_id=self.agent_id,
@@ -43,6 +55,24 @@ class ValidatorAgent:
                 )
             ],
         )
+
+    def _rule_def_to_prover_dict(self, rule_def: RuleDefinition) -> dict:
+        """Translate a RuleDefinition into the Z3 prover's rule dict shape."""
+        clauses = []
+        for cond in rule_def.conditions:
+            field = cond.field[6:] if cond.field.startswith("input.") else cond.field
+            clauses.append(
+                {
+                    "field": field,
+                    "op": _OP_TO_Z3.get(cond.operator, "eq"),
+                    "value": cond.value,
+                }
+            )
+        return {
+            "rule_id": rule_def.rule_name,
+            "when": {"all": clauses},
+            "action": {"type": rule_def.action.outcome.lower()},
+        }
 
     def validate_draft_rule(
         self,
@@ -83,29 +113,59 @@ class ValidatorAgent:
                 )
             )
 
-        # Gate 2: Conflict Resolution Check
+        # Gate 2: Z3-backed Active-Conflict Check (B6).
+        # For every mapped CONFLICT touching this obligation, we formally prove
+        # whether the DRAFTED rule still collides with the existing live rule. The
+        # naive first draft has not superseded the live rule, so Z3 finds a
+        # satisfying counter-example and we reject with ACTIVE_CONFLICT_UNRESOLVED.
+        # Once the author supersedes the live rule (iteration >= 2), the live rule
+        # is no longer active against this draft and the gate passes.
         conflict_check_passed = True
         if mapping_result:
             for item in mapping_result.mappings:
-                if item.obligation_id == rule_def.obligation_id and item.conflict_type.value == "CONFLICT" and item.status == ConflictStatus.DETECTED:
-                    conflict_check_passed = False
-                    objections.append(
-                        ValidationObjection(
-                            objection_id=f"OBJ-CONF-{iteration}",
-                            target_stage=ObjectionTargetStage.POLICY_MAPPING,
-                            code=ObjectionCode.UNRESOLVED_CONFLICT,
-                            message=(
-                                f"Active conflict detected between obligation '{item.obligation_id}' "
-                                f"and existing system rule '{item.existing_rule_ref}'. "
-                                f"{item.description}"
-                            ),
-                            suggested_fix=(
-                                f"Policy Mapper and Rule Author must resolve conflict: "
-                                f"{item.suggested_resolution}"
-                            ),
-                            source_clause_id=item.clause_id,
-                        )
+                if (
+                    item.obligation_id != rule_def.obligation_id
+                    or item.conflict_type != ConflictType.CONFLICT
+                ):
+                    continue
+                existing_rule = (item.details or {}).get("existing_rule")
+                superseded = item.existing_rule_ref in (rule_def.supersedes or [])
+                if superseded or rule_def.conflict_resolved:
+                    # Conflict resolved: draft supersedes the live rule.
+                    continue
+
+                # Prefer a formal Z3 proof when the live rule carries a predicate
+                # ("when"). Otherwise fall back to the structural objection — the
+                # conflict is still real and unresolved.
+                counter_example = None
+                detail_msg = item.description
+                if isinstance(existing_rule, dict) and "when" in existing_rule:
+                    draft_as_rule = self._rule_def_to_prover_dict(rule_def)
+                    proof = self.z3_prover.prove_conflict(draft_as_rule, existing_rule)
+                    if not proof.is_satisfiable:
+                        # Z3 proved the rules are disjoint — no real conflict.
+                        continue
+                    counter_example = proof.counter_example
+                    detail_msg = proof.message
+
+                conflict_check_passed = False
+                objections.append(
+                    ValidationObjection(
+                        objection_id=f"OBJ-CONF-{iteration}",
+                        target_stage=ObjectionTargetStage.POLICY_MAPPING,
+                        code=ObjectionCode.ACTIVE_CONFLICT_UNRESOLVED,
+                        message=(
+                            f"Active conflict unresolved: draft rule '{rule_def.rule_name}' "
+                            f"still collides with live rule '{item.existing_rule_ref}'. {detail_msg}"
+                        ),
+                        suggested_fix=(
+                            "Policy Mapper must resolve the conflict and the Rule Author "
+                            f"must supersede '{item.existing_rule_ref}': {item.suggested_resolution}"
+                        ),
+                        source_clause_id=item.clause_id,
+                        counter_example=counter_example,
                     )
+                )
 
         # Gate 3: Clause Citation & Traceability Coverage
         citation_valid = True

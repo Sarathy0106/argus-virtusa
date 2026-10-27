@@ -18,15 +18,11 @@ import pytest
 from contracts.bank_profile import BankProfile, BankType, ProductType
 from contracts.deployment import DeploymentStage
 from contracts.obligations import ApplicabilityStatus
-from contracts.policy_mapping import ConflictStatus, ConflictType
-from contracts.rule_dsl import DSLOperator
+from contracts.policy_mapping import ConflictType
 from contracts.validation import ObjectionCode
-from services.agents.broker import CapabilityBroker
 from services.agents.deployment_agent import UnauthorizedDeploymentError
 from services.ingest.simulator import SyntheticTransactionGenerator
-from services.ledger.ledger import AuditLedger
 from services.orchestrator.v2_state_machine import RegulatoryRuleOrchestrator
-
 
 SAMPLE_CIRCULAR_TEXT = """
 Reserve Bank of India
@@ -201,9 +197,11 @@ def test_objection_loop_end_to_end(test_bank_profile, historical_txns):
         simulate_objection_loop=True,
     )
 
-    # Must have encountered at least 1 objection and re-routed
+    # Must have encountered at least 1 objection and re-routed. The first draft is
+    # naturally naive and the Z3-backed validator rejects the active conflict.
     assert len(state.objection_history) >= 1
     assert state.objection_history[0].code in (
+        ObjectionCode.ACTIVE_CONFLICT_UNRESOLVED,
         ObjectionCode.UNRESOLVED_CONFLICT,
         ObjectionCode.UNCITED_CLAUSE,
     )
@@ -278,3 +276,19 @@ def test_stage_9_shadow_and_stage_10_canary_rollback(test_bank_profile, historic
     # Verify audit ledger contains complete hash chain
     assert len(state.audit_hashes) >= 5
     assert orchestrator.audit_ledger.verify_chain() is True
+
+
+def test_pipeline_to_approval_with_none_txns(test_bank_profile):
+    """Verifies that run_pipeline_to_approval defaults historical_txns when None is passed."""
+    orchestrator = RegulatoryRuleOrchestrator(deterministic=True)
+    state = orchestrator.run_pipeline_to_approval(
+        circular_id="RBI-2024-118",
+        circular_title="Enhanced Risk Management for UPI",
+        circular_text=SAMPLE_CIRCULAR_TEXT,
+        bank_profile=test_bank_profile,
+        historical_txns=None,
+    )
+    assert state.backtest_result is not None
+    assert state.backtest_result.total_txns == 100
+    assert state.current_stage == 8
+

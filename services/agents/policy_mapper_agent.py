@@ -37,7 +37,7 @@ class PolicyMapperAgent:
         )
 
         # Baseline knowledge of existing live rules and bank policies
-        self.existing_rules = {
+        self.existing_rules: dict[str, dict[str, Any]] = {
             "R-CASH-014": {
                 "rule_id": "R-CASH-014",
                 "title": "Block High-Risk Large Cash Deposits",
@@ -149,8 +149,8 @@ class PolicyMapperAgent:
                 mapping_id=f"MAP-{index:03d}",
                 obligation_id=obl.id,
                 clause_id=obl.clause_id,
-                internal_policy_id=existing.get("policy_ref", "POL-CASH-01"),
-                existing_rule_ref=existing.get("rule_id", "R-CASH-014"),
+                internal_policy_id=str(existing.get("policy_ref", "POL-CASH-01")),
+                existing_rule_ref=str(existing.get("rule_id", "R-CASH-014")),
                 conflict_type=ConflictType.CONFLICT,
                 description=proof.message,
                 suggested_resolution=(
@@ -166,18 +166,41 @@ class PolicyMapperAgent:
                 },
             )
 
+        # MCC-scoped UPI obligations (e.g. C3 high-risk merchant caps) address a
+        # different dimension (merchant category) than the generic per-txn UPI
+        # threshold rule, so they are a clean GAP (new rule), not a conflict. This
+        # lets C3 pass on iteration 1 with no objection loop.
+        mcc_list = obl.condition_json.get("mcc_list")
+        if req_channel == "UPI" and mcc_list:
+            return PolicyMappingItem(
+                mapping_id=f"MAP-{index:03d}",
+                obligation_id=obl.id,
+                clause_id=obl.clause_id,
+                internal_policy_id="POL-UPI-01",
+                existing_rule_ref=None,
+                conflict_type=ConflictType.GAP,
+                description=(
+                    f"No existing rule caps high-risk MCC {mcc_list} on UPI. "
+                    "A new merchant-category-scoped cap rule is required."
+                ),
+                suggested_resolution="Author a new MCC-scoped UPI cap rule; no existing rule is superseded.",
+                status=ConflictStatus.DETECTED,
+                details={"obligation_condition": obl.condition_json, "mcc_list": mcc_list},
+            )
+
         # Check for conflict with existing UPI rule
         if req_channel == "UPI" and "upi_daily_limit" in self.existing_rules:
             existing = self.existing_rules["upi_daily_limit"]
-            curr_threshold = float(existing["threshold_amount"])
+            curr_threshold = float(existing.get("threshold_amount", 0.0))
+            cooling_hours = int(existing.get("cooling_period_hours", 0))
 
             # If existing rule allows higher limit without cooling period, conflict occurs!
-            if curr_threshold > req_threshold or (req_cooling > 0 and existing["cooling_period_hours"] == 0):
+            if curr_threshold > req_threshold or (req_cooling > 0 and cooling_hours == 0):
                 return PolicyMappingItem(
                     mapping_id=f"MAP-{index:03d}",
                     obligation_id=obl.id,
                     clause_id=obl.clause_id,
-                    internal_policy_id=existing["policy_ref"],
+                    internal_policy_id=str(existing.get("policy_ref", "POL-PAY-2023-01")),
                     existing_rule_ref="upi_daily_limit",
                     conflict_type=ConflictType.CONFLICT,
                     description=(
