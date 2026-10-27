@@ -23,7 +23,9 @@ class InvalidAgentSignatureError(Exception):
 
 
 class MCPSanctionsTool:
-    """Mock MCP Tool adapter querying OpenSanctions / OFAC / UN records."""
+    """In-process MCP tool adapter for a bundled, offline sanctions list
+    (OpenSanctions / OFAC SDN / UN consolidated). The designated-entity set is
+    seeded input data, not a faked lookup result."""
 
     def __init__(self):
         # Known designated entities and flagged account tokens

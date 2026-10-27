@@ -1,42 +1,63 @@
-.PHONY: help up down seed demo test redteam lint ui clean
+.PHONY: help up down api web demo test redteam lint no-fakes gen-types clean install-web
 
 PYTHON ?= .venv/bin/python
 PYTEST ?= .venv/bin/pytest
-STREAMLIT ?= .venv/bin/streamlit
+UVICORN ?= .venv/bin/uvicorn
+PNPM ?= pnpm
+
+API_HOST ?= 0.0.0.0
+API_PORT ?= 8000
 
 help:
 	@echo "ARGUS v2 — Makefile Commands"
-	@echo "  make up       - Start local container stack (Postgres, Redis, OPA, etc.)"
-	@echo "  make seed     - Generate reproducible synthetic datasets (seed=42)"
-	@echo "  make test     - Run pytest unit and property tests"
-	@echo "  make demo     - Execute end-to-end 5-minute CLI walkthrough demo"
-	@echo "  make redteam  - Execute red-team prompt-injection and security suite"
-	@echo "  make ui       - Launch Regulatory Mission Control Streamlit UI"
-	@echo "  make lint     - Run code quality check (ruff)"
+	@echo "  make up        - Boot the API (:8000) and the Next.js web app (:3000) together"
+	@echo "  make api       - Run the FastAPI gateway only (:8000)"
+	@echo "  make web       - Run the Next.js dev server only (:3000)"
+	@echo "  make install-web - Install frontend dependencies (pnpm)"
+	@echo "  make gen-types - Generate web/lib/types.generated.ts from the live OpenAPI"
+	@echo "  make demo      - Run the end-to-end demo (Playwright) [added in R5]"
+	@echo "  make test      - Run pytest backend tests"
+	@echo "  make no-fakes  - Run the anti-fake CI gate (scripts/no_fakes.sh)"
+	@echo "  make lint      - Ruff (backend) + next lint (frontend)"
 
+# Boot API and web together. API runs in the background; web runs in the
+# foreground (Ctrl-C stops web; the trap stops the API too).
 up:
-	docker compose -f deploy/docker-compose.yml up -d
+	@echo "Starting ARGUS v2 gateway on :$(API_PORT) and web on :3000 ..."
+	@$(UVICORN) services.gateway.main:app --host $(API_HOST) --port $(API_PORT) & \
+	API_PID=$$!; \
+	trap "kill $$API_PID 2>/dev/null" EXIT INT TERM; \
+	cd web && $(PNPM) dev
+
+api:
+	$(UVICORN) services.gateway.main:app --host $(API_HOST) --port $(API_PORT) --reload
+
+web:
+	cd web && $(PNPM) dev
+
+install-web:
+	cd web && $(PNPM) install
+
+gen-types:
+	cd web && $(PNPM) gen:types
 
 down:
 	docker compose -f deploy/docker-compose.yml down
 
-seed:
-	$(PYTHON) scripts/gen_data.py --seed 42 --rows 100000
+demo:
+	cd web && $(PNPM) e2e
 
 test:
 	$(PYTEST) tests/unit/ -v
 
-demo:
-	$(PYTHON) scripts/demo_v2.py
-
 redteam:
 	$(PYTHON) -m tests.unit.test_redteam
 
-ui:
-	$(STREAMLIT) run ui/app.py --server.port 8501
+no-fakes:
+	bash scripts/no_fakes.sh
 
 lint:
-	.venv/bin/ruff check .
+	.venv/bin/ruff check . && cd web && $(PNPM) lint
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +

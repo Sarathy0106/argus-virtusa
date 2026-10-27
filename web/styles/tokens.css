@@ -1,0 +1,24 @@
+/* ARGUS v2 design tokens — mirrored from ui/theme/tokens.json (Part 5). */
+:root {
+  /* Font stacks (Part 5). Named families first; graceful system fallbacks keep
+     the build offline-safe. R6 can self-host the exact font files. */
+  --font-space-grotesk: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-inter: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-jetbrains: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --bg: #0b0f17;
+  --surface: #121826;
+  --elevated: #1a2233;
+  --border: #263047;
+  --text: #e6eaf2;
+  --muted: #8a94a8;
+  --primary: #22d3ee; /* cyan = agent activity */
+  --accent: #6366f1; /* indigo = actions */
+  --ok: #22c55e; /* green = pass */
+  --warn: #f59e0b; /* amber = objection/warning */
+  --danger: #ef4444; /* red = fail/rollback */
+  --shadow: #a78bfa; /* violet = shadow mode */
+  --radius-card: 12px;
+  --radius-btn: 10px;
+  --radius-chip: 999px;
+}
