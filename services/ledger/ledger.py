@@ -19,11 +19,22 @@ class AuditChainIntegrityError(Exception):
 
 from datetime import datetime, timezone
 
+
 class AuditLedger:
-    def __init__(self, deterministic: bool = True):
+    # Injected deterministic clock base. Replay hashes content only and exclude
+    # wall-clock fields, so the exact base does not affect replay identity; it is
+    # injectable (B11) rather than a hardcoded demo date buried in the code.
+    DEFAULT_CLOCK_BASE = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+
+    def __init__(
+        self,
+        deterministic: bool = True,
+        clock_base: datetime | None = None,
+    ):
         self._chain: list[AuditEntry] = []
         self._current_hash: str = GENESIS_HASH
         self.deterministic = deterministic
+        self._clock_base = clock_base or self.DEFAULT_CLOCK_BASE
 
     def append(
         self,
@@ -37,7 +48,9 @@ class AuditLedger:
         """Appends a new event payload to the cryptographic ledger chain."""
         seq = len(self._chain) + 1
         if recorded_at is None and self.deterministic:
-            recorded_at = datetime(2026, 10, 26, 12, (seq // 60) % 60, seq % 60, tzinfo=timezone.utc)
+            from datetime import timedelta
+
+            recorded_at = self._clock_base + timedelta(seconds=seq)
 
         # Standardize payload timestamp if present and deterministic
         if self.deterministic and isinstance(payload, dict) and "timestamp" in payload:
@@ -83,6 +96,72 @@ class AuditLedger:
         """Alias for verify_integrity."""
         return self.verify_integrity()
 
+
+    # ------------------------------------------------------------------
+    # Merkle tree over entry hashes (B11)
+    # ------------------------------------------------------------------
+    def _leaf_hashes(self) -> list[str]:
+        return [e.verify_hash() for e in self._chain]
+
+    @staticmethod
+    def _hash_pair(a: str, b: str) -> str:
+        import hashlib
+
+        return hashlib.sha256(f"{a}{b}".encode()).hexdigest()
+
+    def merkle_root(self) -> str:
+        """SHA-256 Merkle root over all entry hashes. Deterministic; empty chain
+        returns the genesis hash."""
+        level = self._leaf_hashes()
+        if not level:
+            return GENESIS_HASH
+        while len(level) > 1:
+            if len(level) % 2 == 1:
+                level.append(level[-1])  # duplicate last for odd counts
+            level = [self._hash_pair(level[i], level[i + 1]) for i in range(0, len(level), 2)]
+        return level[0]
+
+    def inclusion_proof(self, index: int) -> dict[str, Any]:
+        """Return a Merkle inclusion proof for the entry at 1-based `index`:
+        the leaf hash and the sibling hashes needed to recompute the root."""
+        leaves = self._leaf_hashes()
+        if not (1 <= index <= len(leaves)):
+            raise IndexError(f"index {index} out of range (1..{len(leaves)})")
+        pos = index - 1
+        siblings: list[dict[str, str]] = []
+        level = list(leaves)
+        leaf = level[pos]
+        while len(level) > 1:
+            if len(level) % 2 == 1:
+                level.append(level[-1])
+            sib = pos ^ 1
+            siblings.append({"hash": level[sib], "side": "right" if sib > pos else "left"})
+            level = [self._hash_pair(level[i], level[i + 1]) for i in range(0, len(level), 2)]
+            pos //= 2
+        return {
+            "index": index,
+            "leaf_hash": leaf,
+            "siblings": siblings,
+            "merkle_root": self.merkle_root(),
+        }
+
+    @staticmethod
+    def verify_inclusion_proof(proof: dict[str, Any]) -> bool:
+        """Recompute the root from a leaf + siblings and compare to the claimed
+        root."""
+        import hashlib
+
+        h = proof["leaf_hash"]
+        for sib in proof["siblings"]:
+            if sib["side"] == "left":
+                h = hashlib.sha256(f"{sib['hash']}{h}".encode()).hexdigest()
+            else:
+                h = hashlib.sha256(f"{h}{sib['hash']}".encode()).hexdigest()
+        return h == proof["merkle_root"]
+
+    def snapshot(self) -> list[AuditEntry]:
+        """Deep copy of the chain for tamper demos on a COPY (never the live chain)."""
+        return [e.model_copy(deep=True) for e in self._chain]
 
     def get_by_seq(self, seq: int) -> AuditEntry | None:
         if 1 <= seq <= len(self._chain):

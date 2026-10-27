@@ -91,8 +91,9 @@ def _chain_status() -> tuple[bool, int, int | None]:
         # The message names the first broken sequence; surface it honestly.
         broken = None
         for token in str(exc).split():
-            if token.isdigit():
-                broken = int(token)
+            stripped = token.strip(":.,;")
+            if stripped.isdigit():
+                broken = int(stripped)
                 break
         return False, count, broken
 

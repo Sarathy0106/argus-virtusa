@@ -493,8 +493,10 @@ class RegulatoryRuleOrchestrator:
             if self.deterministic
             else f"TOK-APP-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
         )
+        from datetime import timedelta
+
         approved_at = (
-            datetime(2026, 10, 26, 12, 15, 0, tzinfo=timezone.utc)
+            self.audit_ledger._clock_base + timedelta(minutes=15)
             if self.deterministic
             else datetime.now(timezone.utc)
         )
@@ -622,9 +624,14 @@ class RegulatoryRuleOrchestrator:
     def _log_stage(
         self, state: V2WorkflowState, event_type: str, payload: dict[str, Any]
     ) -> None:
+        # Let the ledger assign the deterministic timestamp via its injected
+        # clock (B11); we no longer hardcode a demo date here. The payload
+        # timestamp is normalized by the ledger to match recorded_at.
         if self.deterministic:
+            from datetime import timedelta
+
             seq_num = len(self.audit_ledger._chain) + 1
-            ts = datetime(2026, 10, 26, 12, 0, seq_num, tzinfo=timezone.utc)
+            ts = self.audit_ledger._clock_base + timedelta(seconds=seq_num)
             iso_ts = ts.isoformat()
         else:
             ts = None
