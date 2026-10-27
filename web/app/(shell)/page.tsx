@@ -7,6 +7,7 @@ import { useCaseStore } from "@/store/case";
 import { TruthBadge } from "@/components/shell/TruthBadge";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { Panel } from "@/components/shell/Panel";
+import { DemoAutopilot } from "@/components/shell/DemoAutopilot";
 import { fmtInt } from "@/lib/format";
 
 // Mission Control: start a demo case, show KPI strip + truth badge. All numbers
@@ -83,6 +84,8 @@ export default function MissionControl() {
           </div>
         )}
       </Panel>
+
+      <DemoAutopilot />
 
       {meta.data && <TruthBadge meta={meta.data} />}
     </div>

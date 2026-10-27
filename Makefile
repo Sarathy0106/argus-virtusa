@@ -44,8 +44,22 @@ gen-types:
 down:
 	docker compose -f deploy/docker-compose.yml down
 
+# Full demo: boot API (:8000) + web (:3000), wait for health, run the Playwright
+# demo twice, then tear down. Assumes `make install-web` + `pnpm build` were run.
 demo:
-	cd web && $(PNPM) e2e
+	@echo "Booting gateway + web for the demo…"
+	@$(UVICORN) services.gateway.main:app --host $(API_HOST) --port $(API_PORT) --log-level warning & \
+	API_PID=$$!; \
+	( cd web && $(PNPM) start ) & \
+	WEB_PID=$$!; \
+	trap "kill $$API_PID $$WEB_PID 2>/dev/null" EXIT INT TERM; \
+	echo "Waiting for services…"; \
+	for i in $$(seq 1 30); do \
+	  curl -sf http://localhost:$(API_PORT)/health >/dev/null && \
+	  curl -sf http://localhost:3000/ >/dev/null && break; \
+	  sleep 1; \
+	done; \
+	cd web && $(PNPM) exec playwright test
 
 test:
 	$(PYTEST) tests/unit/ -v
