@@ -3,6 +3,7 @@ Ed25519 Cryptographic Signatures for ARGUS Agent Mesh.
 Ensures non-repudiation and cryptographic identity verification across all A2A calls.
 """
 
+import hashlib
 import json
 from typing import Any
 
@@ -11,8 +12,18 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 
 
 class AgentKeyPair:
-    def __init__(self, private_key: ed25519.Ed25519PrivateKey | None = None):
-        self.private_key = private_key or ed25519.Ed25519PrivateKey.generate()
+    def __init__(
+        self,
+        private_key: ed25519.Ed25519PrivateKey | None = None,
+        seed: str | bytes | None = None,
+    ):
+        if private_key:
+            self.private_key = private_key
+        elif seed:
+            seed_bytes = hashlib.sha256(seed.encode("utf-8") if isinstance(seed, str) else seed).digest()
+            self.private_key = ed25519.Ed25519PrivateKey.from_private_bytes(seed_bytes)
+        else:
+            self.private_key = ed25519.Ed25519PrivateKey.generate()
         self.public_key = self.private_key.public_key()
 
     @property

@@ -7,6 +7,7 @@ shadow-mode concordance, canary progression, and sub-minute rollback triggers.
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -60,6 +61,11 @@ class CanaryMetrics(BaseModel):
     error_rate_pct: float = 0.0
     breach_detected: bool = False
     breach_reason: str | None = None
+    # Wald SPRT state (B8): log-likelihood ratio and decision boundaries.
+    sprt_llr: float = 0.0
+    sprt_decision: str = "CONTINUE"  # CONTINUE, ACCEPT_H1 (breach), ACCEPT_H0 (healthy)
+    sprt_upper_bound: float = 0.0
+    sprt_lower_bound: float = 0.0
 
 
 class RollbackRecord(BaseModel):
@@ -69,5 +75,10 @@ class RollbackRecord(BaseModel):
     to_version: str
     reason: str
     triggered_by: str = Field(default="AUTOMATIC_BREACH")  # AUTOMATIC_BREACH, MANUAL
-    recovery_time_ms: float = Field(default=0.0, description="Time taken to revert pointer in milliseconds")
+    recovery_time_ms: float = Field(default=0.0, description="Measured pointer-swap time (ms)")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # B10: measured saga timing + bundle pointer evidence.
+    breach_detected_at: datetime | None = None
+    rollback_confirmed_at: datetime | None = None
+    previous_bundle_hash: str | None = None
+    pre_deploy_hash: str | None = None

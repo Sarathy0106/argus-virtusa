@@ -1,0 +1,23 @@
+rule_id: R-CASH-014
+version: 1.2.0
+title: Block High-Risk Large Cash Deposits
+source:
+  policy: POL-CASH-01
+  clause: POL-CASH-2.1
+when:
+  all:
+  - field: is_cash
+    op: eq
+    value: true
+  - field: amount
+    op: gte
+    value: 1000000
+  - field: risk_band
+    op: eq
+    value: C
+action:
+  type: block
+  reason: High-risk cash deposit ceiling reached
+effective:
+  from: '2024-01-01'
+status: ACTIVE

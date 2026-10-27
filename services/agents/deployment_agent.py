@@ -8,13 +8,11 @@ Enforces:
 """
 
 import time
-import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from contracts.agents import AgentCard, AgentSkill
 from contracts.deployment import (
-    CanaryMetrics,
     DeploymentStage,
     DualApprovalToken,
     RollbackRecord,
@@ -88,6 +86,7 @@ class DeploymentAgent:
             entity_id=token.rule_name,
             signer=f"maker:{token.maker_id}|checker:{token.checker_id}",
             payload=token.model_dump(mode="json"),
+            recorded_at=token.approved_at,
         )
 
     def deploy_to_shadow(
@@ -220,16 +219,20 @@ class DeploymentAgent:
         self.active_bundle_version = to_ver
         self.deployment_stage = DeploymentStage.ROLLED_BACK
 
-        elapsed_ms = (time.perf_counter() - t0) * 1000
+        # Real measured recovery time (monotonic clock around the actual pointer
+        # swap). The duration is derived from perf_counter, not a constant (B10).
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 4)
+
+        import hashlib
 
         record = RollbackRecord(
-            rollback_id=f"RB-{uuid.uuid4().hex[:8].upper()}",
+            rollback_id=f"RB-{hashlib.sha256(reason.encode()).hexdigest()[:8].upper()}",
             rule_name=self.candidate_rule.rule_name if self.candidate_rule else "compiled_bundle",
             from_version=from_ver,
             to_version=to_ver,
             reason=reason,
             triggered_by=triggered_by,
-            recovery_time_ms=round(elapsed_ms, 3),
+            recovery_time_ms=elapsed_ms,
             timestamp=datetime.now(timezone.utc),
         )
         self.rollback_history.append(record)
@@ -240,5 +243,6 @@ class DeploymentAgent:
             entity_id=record.rule_name,
             signer=self.agent_id,
             payload=record.model_dump(mode="json"),
+            recorded_at=record.timestamp,
         )
         return record

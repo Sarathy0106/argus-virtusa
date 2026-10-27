@@ -1,0 +1,17 @@
+rule_id: R-UPI-011
+version: 1.0.0
+title: P2P Velocity Above 10 Daily
+source:
+  policy: POL-UPI-01
+  clause: POL-UPI-1.1
+when:
+  all:
+  - field: channel
+    op: eq
+    value: UPI
+action:
+  type: alert
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

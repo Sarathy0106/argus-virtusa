@@ -1,0 +1,17 @@
+rule_id: R-CROSS-022
+version: 1.0.0
+title: Trade Advance Remittance IDPMS Match
+source:
+  policy: POL-CROSS-01
+  clause: POL-CROSS-2.4
+when:
+  all:
+  - field: amount
+    op: eq
+    value: 1500000
+action:
+  type: verify_doc
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

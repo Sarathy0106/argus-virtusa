@@ -15,6 +15,7 @@ class ObjectionTargetStage(str, Enum):
 
 class ObjectionCode(str, Enum):
     UNRESOLVED_CONFLICT = "UNRESOLVED_CONFLICT"
+    ACTIVE_CONFLICT_UNRESOLVED = "ACTIVE_CONFLICT_UNRESOLVED"
     UNCITED_CLAUSE = "UNCITED_CLAUSE"
     SCHEMA_VIOLATION = "SCHEMA_VIOLATION"
     TEST_FAILURE = "TEST_FAILURE"
@@ -31,6 +32,10 @@ class ValidationObjection(BaseModel):
     message: str = Field(..., description="Human and agent readable critique of the flaw")
     suggested_fix: str = Field(..., description="Actionable remediation instructions")
     source_clause_id: str | None = Field(default=None)
+    counter_example: dict | None = Field(
+        default=None,
+        description="Z3 counter-example transaction demonstrating the conflict, if any.",
+    )
 
 
 class ValidationReport(BaseModel):

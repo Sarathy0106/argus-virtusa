@@ -1,0 +1,260 @@
+/* ARGUS v2 — Regulatory Mission Control Theme */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #0B0F17;
+  --surface: #121826;
+  --elevated: #1A2233;
+  --border: #263047;
+  --text: #E6EAF2;
+  --muted: #8A94A8;
+  --primary: #22D3EE;
+  --accent: #6366F1;
+  --ok: #22C55E;
+  --warn: #F59E0B;
+  --danger: #EF4444;
+  --shadow: #A78BFA;
+}
+
+/* Global Font & Reset */
+html, body, [class*="css"], .stApp {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+h1, h2, h3, .brand-title {
+  font-family: 'Space Grotesk', sans-serif !important;
+  color: var(--text) !important;
+  letter-spacing: -0.02em;
+}
+
+code, pre, .mono-chip, [class*="stCode"] {
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* Hide default Streamlit clutter */
+#MainMenu, footer, header {
+  visibility: hidden;
+  height: 0;
+}
+
+.block-container {
+  padding-top: 1rem !important;
+  padding-bottom: 2.5rem !important;
+  max-width: 1440px !important;
+}
+
+/* Mission Control Top Bar */
+.control-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-shield {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #22D3EE33, #6366F133);
+  border: 1px solid var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--primary);
+  box-shadow: 0 0 16px #22D3EE33;
+}
+
+.guardrail-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.guardrail-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.guardrail-chip.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(34, 211, 238, 0.08);
+}
+
+/* 10-Stage Pipeline Stepper */
+.stage-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.stepper-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.stepper-step.completed {
+  color: var(--ok);
+}
+
+.stepper-step.active {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.step-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+}
+
+.stepper-step.completed .step-num {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.stepper-step.active .step-num {
+  background: rgba(34, 211, 238, 0.2);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
+}
+
+.stepper-divider {
+  flex-grow: 1;
+  height: 1px;
+  background: var(--border);
+  margin: 0 8px;
+  min-width: 12px;
+}
+
+/* Cards & Surface Components */
+.argus-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  transition: transform 150ms ease-out, border-color 150ms ease-out;
+}
+
+.argus-card:hover {
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.argus-card-elevated {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+/* Monospace Chips */
+.mono-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--primary);
+}
+
+.mono-chip-amber {
+  color: var(--warn);
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.mono-chip-green {
+  color: var(--ok);
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.mono-chip-red {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* Metric Display Numbers */
+.metric-hero {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.metric-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+/* Buttons */
+.stButton>button {
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  transition: all 150ms ease-out !important;
+  border: 1px solid var(--border) !important;
+  height: 40px !important;
+}
+
+.stButton>button:hover {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.25) !important;
+}
+
+/* Presenter Mode Overrides */
+.presenter-mode {
+  font-size: 16px !important;
+}
+.presenter-mode .metric-hero {
+  font-size: 48px !important;
+}

@@ -1,0 +1,23 @@
+rule_id: R-SANCT-003
+version: 3.0.0
+title: High-Value Cross-Border Remittance Gate
+source:
+  policy: POL-CROSS-01
+  clause: POL-CROSS-1.1
+when:
+  all:
+  - field: channel
+    op: eq
+    value: RTGS
+  - field: currency
+    op: neq
+    value: INR
+  - field: amount
+    op: gte
+    value: 2000000
+action:
+  type: hold
+  queue: treasury_forex_l2
+effective:
+  from: '2024-02-15'
+status: ACTIVE

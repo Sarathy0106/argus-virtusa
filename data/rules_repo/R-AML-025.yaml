@@ -1,0 +1,17 @@
+rule_id: R-AML-025
+version: 1.0.0
+title: Bullion and Gold Jewelry Cash Purchase
+source:
+  policy: POL-AML-01
+  clause: POL-AML-2.4
+when:
+  all:
+  - field: amount
+    op: eq
+    value: 200000
+action:
+  type: report_fiu
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

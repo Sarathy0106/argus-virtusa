@@ -1,0 +1,17 @@
+rule_id: R-CROSS-017
+version: 1.0.0
+title: Outward LRS TCS Check
+source:
+  policy: POL-CROSS-01
+  clause: POL-CROSS-1.1
+when:
+  all:
+  - field: amount
+    op: eq
+    value: 700000
+action:
+  type: verify_tax
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

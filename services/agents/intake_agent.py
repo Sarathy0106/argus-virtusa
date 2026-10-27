@@ -75,6 +75,25 @@ class IntakeAgent:
             "airlocked": True,
         }
 
+    @staticmethod
+    def _normalize_structure(text: str) -> str:
+        """Insert a blank line before each structural marker so paragraph-based
+        chunking is identical regardless of whether the source used single
+        (PDF-extracted) or double (Markdown) newlines."""
+        # Collapse 3+ newlines to a single newline first for a uniform base.
+        text = re.sub(r"\n{2,}", "\n", text)
+        lines = text.split("\n")
+        out: list[str] = []
+        marker = re.compile(
+            r"^\s*(#{1,6}\s|---+\s*$|(?:Section|Clause|Paragraph)\b|[0-9]+\.[0-9]|[0-9]+\.\s)",
+            re.IGNORECASE,
+        )
+        for line in lines:
+            if marker.match(line) and out and out[-1].strip() != "":
+                out.append("")  # paragraph break before the marker
+            out.append(line)
+        return "\n".join(out)
+
     def _chunk_clauses(
         self,
         circular_id: str,
@@ -86,6 +105,13 @@ class IntakeAgent:
         """
         Splits circular text into discrete clauses based on clause/section markers.
         """
+        # Normalize so that PDF-extracted text (single newlines) and Markdown
+        # (double newlines) chunk identically: ensure a blank line precedes every
+        # structural marker (markdown heading, horizontal rule, or numbered
+        # section like "### Section 2" / "2.1"). This makes clause IDs stable
+        # across input formats (B3 requirement).
+        text = self._normalize_structure(text)
+
         # Look for patterns like "Clause 1.", "1.", "Section 2:", "Paragraph (a)", etc.
         pattern = r"(?:\n|^)(?:(?:Section|Clause|Paragraph|\§)\s*([0-9A-Za-z\.\-]+)|([0-9]+)\.)[:\s]"
         splits = list(re.finditer(pattern, text, re.IGNORECASE))

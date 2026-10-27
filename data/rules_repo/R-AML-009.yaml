@@ -1,0 +1,17 @@
+rule_id: R-AML-009
+version: 1.0.0
+title: Corporate Single Inflow Over 5 Crore
+source:
+  policy: POL-AML-01
+  clause: POL-AML-1.1
+when:
+  all:
+  - field: amount
+    op: eq
+    value: 50000000
+action:
+  type: enhanced_review
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

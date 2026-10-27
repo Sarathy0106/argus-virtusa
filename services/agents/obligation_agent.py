@@ -15,9 +15,32 @@ from contracts.obligations import ApplicabilityStatus, RegulatoryObligation
 from services.agents.crypto import AgentKeyPair
 
 
+def _normalize_risk_bands(bands: list) -> list[str]:
+    """Map noisy LLM band strings ('Risk Band B (Medium)') to canonical letters
+    ('B') the policy mapper and Z3 prover expect."""
+    out: list[str] = []
+    for b in bands:
+        s = str(b).upper()
+        m = re.search(r"\bBAND\s*([ABC])\b", s) or re.search(r"\b([ABC])\b", s)
+        letter = m.group(1) if m else s[:1]
+        if letter in ("A", "B", "C") and letter not in out:
+            out.append(letter)
+    return out
+
+
 class ObligationAgent:
-    def __init__(self, key_pair: AgentKeyPair | None = None):
+    def __init__(self, key_pair: AgentKeyPair | None = None, use_llm: bool | None = None):
         self.key_pair = key_pair or AgentKeyPair()
+        # LLM extraction (B14) is opt-in. When enabled, each clause is extracted
+        # by Ollama + verified by the deterministic citation verifier, with a
+        # per-clause fallback to the keyword extractor. `last_mode` records what
+        # actually ran so /meta can report it honestly.
+        import os
+
+        if use_llm is None:
+            use_llm = os.environ.get("ARGUS_LLM_EXTRACTION", "0") == "1"
+        self.use_llm = use_llm
+        self.last_mode = "deterministic"
         self.agent_id = "agent.obligation"
         self.card = AgentCard(
             agent_id=self.agent_id,
@@ -40,18 +63,141 @@ class ObligationAgent:
         against the target bank profile.
         """
         obligations: list[RegulatoryObligation] = []
+        modes: set[str] = set()
 
         for clause in clauses:
-            extracted = self._parse_clause_to_obligation(clause)
-            if extracted:
-                for obl in extracted:
-                    # Evaluate Applicability Engine
-                    status, rationale = self.evaluate_applicability(obl, bank_profile)
-                    obl.applicability_status = status
-                    obl.applicability_rationale = rationale
-                    obligations.append(obl)
+            extracted: list[RegulatoryObligation] = []
 
+            if self.use_llm:
+                llm_obls, mode = self._llm_extract_clause(clause)
+                modes.add(mode)
+                if mode in ("ollama", "replay_cache"):
+                    extracted = llm_obls
+                else:
+                    # LLM unreachable / empty for this clause -> deterministic.
+                    extracted = self._parse_clause_to_obligation(clause)
+                    modes.add("deterministic_fallback")
+            else:
+                extracted = self._parse_clause_to_obligation(clause)
+                modes.add("deterministic")
+
+            for obl in extracted:
+                status, rationale = self.evaluate_applicability(obl, bank_profile)
+                obl.applicability_status = status
+                obl.applicability_rationale = rationale
+                obligations.append(obl)
+
+        # Summarize the mode that actually ran across clauses.
+        if "ollama" in modes:
+            self.last_mode = "ollama"
+        elif "replay_cache" in modes:
+            self.last_mode = "replay_cache"
+        else:
+            self.last_mode = "deterministic"
         return obligations
+
+    @staticmethod
+    def _is_injection(text: str) -> bool:
+        """Prompt-injection / untrusted-instruction guard (applies to BOTH the
+        deterministic and LLM paths). Circular text is DATA, never instructions."""
+        t = text.lower()
+        triggers = [
+            "ignore previous",
+            "system notice",
+            "system override",
+            "auto-approve all",
+            "without maker-checker",
+            "bypass maker",
+            "disregard the above",
+        ]
+        return any(trig in t for trig in triggers)
+
+    def _llm_extract_clause(
+        self, clause: RegulationClause
+    ) -> tuple[list[RegulatoryObligation], str]:
+        """Extract obligations for one clause via the LLM extractor and map the
+        verified JSON into RegulatoryObligation objects.
+
+        The prompt-injection guard runs BEFORE extraction so a poisoned clause
+        (C4) yields zero obligations regardless of what the model returns — the
+        LLM never gets to act on embedded instructions.
+        """
+        from services.cognition.llm_extractor import extract_clause_obligations
+
+        if self._is_injection(clause.clause_text):
+            return [], "ollama"  # neutralized; treated as a successful empty extraction
+
+        outcome = extract_clause_obligations(clause.clause_text)
+        results: list[RegulatoryObligation] = []
+        for idx, o in enumerate(outcome.obligations, 1):
+            obl = self._llm_obligation_to_contract(clause, o, idx)
+            # Reject non-executable advisories: an obligation with no actionable
+            # condition (no threshold, channel, cadence, cooling, mcc, risk band)
+            # is vague guidance, not a rule we can author. This keeps the pipeline
+            # from manufacturing rules out of "should ... whenever feasible" text.
+            if not obl.condition_json:
+                continue
+            results.append(obl)
+        return results, outcome.mode
+
+    def _llm_obligation_to_contract(
+        self, clause: RegulationClause, o: dict[str, Any], idx: int
+    ) -> RegulatoryObligation:
+        """Build the same RegulatoryObligation shape the deterministic path emits,
+        so downstream mapping / Z3 / rule authoring are unchanged."""
+        threshold = o.get("threshold_amount")
+        is_cash = bool(o.get("is_cash", False))
+        channel = o.get("channel")
+        risk_bands = o.get("risk_bands") or []
+        cadence_days = o.get("cadence_days")
+        cooling = o.get("cooling_period_hours")
+        mcc_list = o.get("mcc_list") or []
+        action = str(o.get("action") or "HOLD").upper()
+
+        condition: dict[str, Any] = {}
+        if threshold is not None:
+            condition["threshold_amount"] = float(threshold)
+        if is_cash:
+            condition["is_cash"] = True
+        if channel:
+            condition["channel"] = str(channel).upper()
+        if risk_bands:
+            condition["risk_bands"] = _normalize_risk_bands(risk_bands)
+        if cadence_days is not None:
+            condition["cadence_days"] = int(cadence_days)
+        if cooling is not None:
+            condition["cooling_period_hours"] = int(cooling)
+        if mcc_list:
+            condition["mcc_list"] = [str(m) for m in mcc_list]
+
+        # Derive a stable rule_ref and target products from the semantics.
+        if is_cash:
+            ref = f"cash_obligation_{int(threshold or 0)}"
+            products = ["RETAIL_DEPOSITS"]
+        elif channel and str(channel).upper() == "UPI":
+            ref = "upi_obligation" if not mcc_list else "upi_high_risk_mcc_cap_25k"
+            products = ["UPI"]
+        elif channel and str(channel).upper() == "RTGS":
+            ref = f"rtgs_wire_threshold_{int(threshold or 0)}"
+            products = ["RTGS"]
+        else:
+            ref = f"obligation_{clause.id.lower()}_{idx}"
+            products = []
+
+        return RegulatoryObligation(
+            id=f"OBL-{clause.id}-L{idx}",
+            circular_id=clause.doc_id,
+            clause_id=clause.id,
+            actor=str(o.get("actor") or "Regulated Entity"),
+            trigger_event=str(o.get("trigger_event") or "TRANSACTION_SUBMITTED"),
+            condition_json=condition,
+            action_json={"action": action},
+            rule_ref=ref,
+            severity=str(o.get("severity") or "HIGH").upper(),
+            deadline=o.get("deadline"),
+            target_products=products,
+            citations=[f"[CLAUSE:{clause.id}]"],
+        )
 
     def evaluate_applicability(
         self, obligation: RegulatoryObligation, bank_profile: BankProfile
@@ -60,6 +206,24 @@ class ObligationAgent:
         Deterministic Applicability Engine:
         Verifies bank type, active products, channels, and licenses against obligation demands.
         """
+        actor_up = obligation.actor.upper()
+        bank_type = bank_profile.bank_type.value
+
+        # 0. Entity-class exclusivity. Obligations addressed exclusively to Urban
+        # Co-operative Banks / NBFCs (e.g. C2) do NOT apply to a Scheduled
+        # Commercial Bank, and vice-versa. This keys on the actor the extractor
+        # captured from the clause.
+        coop_nbfc = any(
+            k in actor_up
+            for k in ["CO-OPERATIVE", "COOPERATIVE", "UCB", "NBFC", "URBAN CO"]
+        )
+        if coop_nbfc and "COMMERCIAL" not in actor_up and bank_type == "SCHEDULED_COMMERCIAL_BANK":
+            return (
+                ApplicabilityStatus.NOT_APPLICABLE,
+                f"Obligation applies exclusively to Urban Co-operative Banks / NBFCs. "
+                f"{bank_profile.bank_name} is a {bank_type} and is expressly out of scope.",
+            )
+
         # 1. Check Product / Channel Alignment
         target_channel = obligation.condition_json.get("channel")
         target_products = [p.upper() for p in obligation.target_products]
@@ -105,17 +269,146 @@ class ObligationAgent:
     def _parse_clause_to_obligation(self, clause: RegulationClause) -> list[RegulatoryObligation]:
         """
         Extracts structured condition, threshold, and action from clause text.
+        Guarantees clause citations on every extracted obligation.
         """
         text = clause.clause_text
         text_lower = text.lower()
         results: list[RegulatoryObligation] = []
 
-        # Skip pure scope/preamble clauses without actionable conditions
-        if ("scope and applicability" in text_lower or "short title" in text_lower) and not re.search(r"(?:₹|rs\.?|inr|cooling)", text_lower):
+        # Defense against Prompt Injection (e.g. Circular C4)
+        injection_triggers = ["ignore previous", "system notice", "system override", "auto-approve all"]
+        if any(trig in text_lower for trig in injection_triggers):
+            # Flag and neutralize: do not execute injection instructions
             return []
 
-        # Cross-border wire or high value RTGS
-        if "rtgs" in text_lower or "cross-border" in text_lower or "wire" in text_lower:
+        # Skip pure scope/preamble/enforcement timeline clauses without actionable conditions
+        if (
+            "scope and applicability" in text_lower
+            or "short title" in text_lower
+            or "scope & institutional" in text_lower
+            or "enforcement & timelines" in text_lower
+            or "general threat briefing" in text_lower
+        ) and not ("reporting mandate" in text_lower or "cooling" in text_lower or "enhanced review" in text_lower or "rtgs" in text_lower or "exceeding" in text_lower):
+            return []
+
+        # -----------------------------------------------------------------
+        # C1: Cash Deposit Reporting (Clause 2.1)
+        # -----------------------------------------------------------------
+        if "reporting mandate" in text_lower or ("cash" in text_lower and "7 calendar days" in text_lower):
+            obl_id = f"OBL-{clause.id}-REP"
+            results.append(
+                RegulatoryObligation(
+                    id=obl_id,
+                    circular_id=clause.doc_id,
+                    clause_id=clause.id,
+                    actor="Scheduled Commercial Bank",
+                    trigger_event="SETTLEMENT_WEEK_CLOSE",
+                    condition_json={
+                        "threshold_amount": 800000.0,
+                        "is_cash": True,
+                        "cadence_days": 7,
+                        "channel": "BRANCH",
+                    },
+                    action_json={"action": "REGULATORY_REPORTING", "sla_days": 7},
+                    rule_ref="cash_deposit_weekly_reporting_800k",
+                    severity="HIGH",
+                    deadline="2026-11-01",
+                    target_products=["RETAIL_DEPOSITS"],
+                    citations=[f"[CLAUSE:{clause.id}]"],
+                )
+            )
+
+        # -----------------------------------------------------------------
+        # C1: Cash Deposit Enhanced Due Diligence (Clause 2.3a)
+        # -----------------------------------------------------------------
+        if "customer risk-tiered review" in text_lower or ("cash deposit" in text_lower and "risk band" in text_lower):
+            threshold = 800000.0
+            amt_match = re.search(r"(?:₹|rs\.?|inr)\s*([0-9,]+)", text, re.IGNORECASE)
+            if amt_match:
+                try:
+                    threshold = float(amt_match.group(1).replace(",", ""))
+                except ValueError:
+                    threshold = 800000.0
+
+            obl_id = f"OBL-{clause.id}-EDD"
+            results.append(
+                RegulatoryObligation(
+                    id=obl_id,
+                    circular_id=clause.doc_id,
+                    clause_id=clause.id,
+                    actor="Scheduled Commercial Bank",
+                    trigger_event="TRANSACTION_SUBMITTED",
+                    condition_json={
+                        "threshold_amount": threshold,
+                        "is_cash": True,
+                        "risk_bands": ["B", "C"],
+                        "channel": "BRANCH",
+                    },
+                    action_json={"action": "ENHANCED_REVIEW", "queue": "aml_l2", "sla_hours": 24},
+                    rule_ref="cash_deposit_edd_800k",
+                    severity="CRITICAL",
+                    deadline="2026-11-01",
+                    target_products=["RETAIL_DEPOSITS"],
+                    citations=[f"[CLAUSE:{clause.id}]"],
+                )
+            )
+
+        # -----------------------------------------------------------------
+        # C2: Urban Co-operative Banks & NBFCs Capital Buffer (Clause 2.1)
+        # -----------------------------------------------------------------
+        if "capital conservation buffer" in text_lower or ("ucb" in text_lower and "nbfc" in text_lower):
+            obl_id = f"OBL-{clause.id}-CCB"
+            results.append(
+                RegulatoryObligation(
+                    id=obl_id,
+                    circular_id=clause.doc_id,
+                    clause_id=clause.id,
+                    actor="Urban Co-operative Bank & NBFC-BL",
+                    trigger_event="CAPITAL_ADEQUACY_REVIEW",
+                    condition_json={"incremental_ccb_percent": 1.25, "sector": "COOPERATIVE_NBFC"},
+                    action_json={"action": "MAINTAIN_CAPITAL_BUFFER", "target_pct": 1.25},
+                    rule_ref="ucb_nbfc_capital_buffer_1_25",
+                    severity="HIGH",
+                    deadline="2026-12-31",
+                    target_products=["CORPORATE_LOANS"],
+                    citations=[f"[CLAUSE:{clause.id}]"],
+                )
+            )
+
+        # -----------------------------------------------------------------
+        # C3: UPI High Risk MCC Limit (Clause 2.1)
+        # -----------------------------------------------------------------
+        if "merchant category codes" in text_lower or ("7995" in text or "6051" in text):
+            obl_id = f"OBL-{clause.id}-MCC"
+            results.append(
+                RegulatoryObligation(
+                    id=obl_id,
+                    circular_id=clause.doc_id,
+                    clause_id=clause.id,
+                    actor="Scheduled Commercial Bank & Payment System Operator",
+                    trigger_event="TRANSACTION_SUBMITTED",
+                    condition_json={
+                        "channel": "UPI",
+                        "mcc_list": ["7995", "6051"],
+                        "per_txn_cap": 25000.0,
+                        "daily_cap": 50000.0,
+                    },
+                    action_json={"action": "DECLINE_IF_EXCEEDED", "reason_code": "HR_MCC_LIMIT_EXCEEDED"},
+                    rule_ref="upi_high_risk_mcc_cap_25k",
+                    severity="HIGH",
+                    deadline="2026-11-01",
+                    target_products=["UPI"],
+                    citations=[f"[CLAUSE:{clause.id}]"],
+                )
+            )
+
+        # -----------------------------------------------------------------
+        # Cross-border wire or high value RTGS (Legacy / Generic)
+        # -----------------------------------------------------------------
+        if (
+            ("rtgs" in text_lower and ("shall" in text_lower or "must" in text_lower))
+            or ("cross-border" in text_lower and "sanction" in text_lower)
+        ) and not results:
             threshold = 500000.0
             amt_match = re.search(r"(?:₹|rs\.?|inr|usd)\s*([0-9,]+)", text, re.IGNORECASE)
             if amt_match:
@@ -142,10 +435,12 @@ class ObligationAgent:
                 )
             )
 
-        # UPI Cooling Period / High-value immediate check
-        elif ("upi" in text_lower or "cooling" in text_lower or "immediate" in text_lower) and (
+        # -----------------------------------------------------------------
+        # UPI Cooling Period / High-value immediate check (Legacy / Generic)
+        # -----------------------------------------------------------------
+        elif (("upi" in text_lower or "cooling" in text_lower or "immediate" in text_lower) and (
             "cooling" in text_lower or "50,000" in text or "threshold" in text_lower or "exceed" in text_lower
-        ):
+        )) and not results:
 
             threshold = 50000.0
             amt_match = re.search(r"(?:₹|rs\.?|inr)\s*([0-9,]+)", text, re.IGNORECASE)

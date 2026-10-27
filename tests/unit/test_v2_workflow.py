@@ -18,15 +18,11 @@ import pytest
 from contracts.bank_profile import BankProfile, BankType, ProductType
 from contracts.deployment import DeploymentStage
 from contracts.obligations import ApplicabilityStatus
-from contracts.policy_mapping import ConflictStatus, ConflictType
-from contracts.rule_dsl import DSLOperator
+from contracts.policy_mapping import ConflictType
 from contracts.validation import ObjectionCode
-from services.agents.broker import CapabilityBroker
 from services.agents.deployment_agent import UnauthorizedDeploymentError
 from services.ingest.simulator import SyntheticTransactionGenerator
-from services.ledger.ledger import AuditLedger
 from services.orchestrator.v2_state_machine import RegulatoryRuleOrchestrator
-
 
 SAMPLE_CIRCULAR_TEXT = """
 Reserve Bank of India
@@ -173,15 +169,19 @@ def test_stage_5_backtest_and_stage_6_impact(test_bank_profile, historical_txns)
         iteration=2,
     )
 
-    # Backtest
-    backtest = orchestrator.backtest_agent.run_backtest(rule_def, historical_txns)
-    assert backtest.total_txns == len(historical_txns)
+    # Backtest over the real 500k dataset (DuckDB). Segments are derived from
+    # real per-segment row counts, so there is one entry per customer segment.
+    backtest = orchestrator.backtest_agent.run_duckdb_backtest(rule_def)
+    assert backtest.total_txns == 500000
     assert backtest.candidate_alerts >= 0
+    assert backtest.data_source == "duckdb_500k_parquet"
 
-    # Impact
+    # Impact — segment breakdown comes from the backtest's real segment counts.
     impact = orchestrator.impact_agent.analyze_impact(backtest)
-    assert len(impact.segments) == 3
+    assert len(impact.segments) == len(backtest.segments) >= 1
     assert impact.estimated_ops_hours_per_day >= 0.0
+    # Shares are derived from real counts and sum to ~100%.
+    assert abs(sum(s.share_of_alerts_pct for s in impact.segments) - 100.0) < 1.0
 
 
 def test_objection_loop_end_to_end(test_bank_profile, historical_txns):
@@ -201,9 +201,11 @@ def test_objection_loop_end_to_end(test_bank_profile, historical_txns):
         simulate_objection_loop=True,
     )
 
-    # Must have encountered at least 1 objection and re-routed
+    # Must have encountered at least 1 objection and re-routed. The first draft is
+    # naturally naive and the Z3-backed validator rejects the active conflict.
     assert len(state.objection_history) >= 1
     assert state.objection_history[0].code in (
+        ObjectionCode.ACTIVE_CONFLICT_UNRESOLVED,
         ObjectionCode.UNRESOLVED_CONFLICT,
         ObjectionCode.UNCITED_CLAUSE,
     )
@@ -278,3 +280,20 @@ def test_stage_9_shadow_and_stage_10_canary_rollback(test_bank_profile, historic
     # Verify audit ledger contains complete hash chain
     assert len(state.audit_hashes) >= 5
     assert orchestrator.audit_ledger.verify_chain() is True
+
+
+def test_pipeline_to_approval_with_none_txns(test_bank_profile):
+    """Verifies that run_pipeline_to_approval defaults historical_txns when None is passed."""
+    orchestrator = RegulatoryRuleOrchestrator(deterministic=True)
+    state = orchestrator.run_pipeline_to_approval(
+        circular_id="RBI-2024-118",
+        circular_title="Enhanced Risk Management for UPI",
+        circular_text=SAMPLE_CIRCULAR_TEXT,
+        bank_profile=test_bank_profile,
+        historical_txns=None,
+    )
+    assert state.backtest_result is not None
+    # The pipeline backtests over the real 500k dataset via DuckDB.
+    assert state.backtest_result.total_txns == 500000
+    assert state.current_stage == 8
+

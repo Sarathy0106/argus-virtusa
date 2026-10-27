@@ -1,0 +1,17 @@
+rule_id: R-FRAUD-010
+version: 1.0.0
+title: Rapid Password Reset Wire
+source:
+  policy: POL-FRAUD-01
+  clause: POL-FRAUD-1.1
+when:
+  all:
+  - field: channel
+    op: eq
+    value: NET_BANKING
+action:
+  type: hold
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

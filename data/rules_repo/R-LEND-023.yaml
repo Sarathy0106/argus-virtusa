@@ -1,0 +1,17 @@
+rule_id: R-LEND-023
+version: 1.0.0
+title: MSME Working Capital Disbursal Gate
+source:
+  policy: POL-LEND-01
+  clause: POL-LEND-1.1
+when:
+  all:
+  - field: amount
+    op: eq
+    value: 2500000
+action:
+  type: manual_signoff
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

@@ -17,6 +17,11 @@ sdist/
 var/
 wheels/
 share/python-wheels/
+
+# Re-include the Next.js frontend lib dir (the broad Python `lib/` rule above
+# must not swallow web/lib source).
+!web/lib/
+!web/lib/**
 *.egg-info/
 .installed.cfg
 *.egg
@@ -55,3 +60,7 @@ data/*.json
 *.log
 logs/
 .langfuse/
+
+# LLM record/replay extraction cache (generated; warm with `make warm-llm`)
+data/llm_cache/
+data/user_keys.json

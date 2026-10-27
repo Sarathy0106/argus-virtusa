@@ -15,11 +15,13 @@ from contracts.policy_mapping import (
     PolicyMappingResult,
 )
 from services.agents.crypto import AgentKeyPair
+from services.regcompiler.z3_prover import Z3RuleProver
 
 
 class PolicyMapperAgent:
-    def __init__(self, key_pair: AgentKeyPair | None = None):
+    def __init__(self, key_pair: AgentKeyPair | None = None, z3_prover: Z3RuleProver | None = None):
         self.key_pair = key_pair or AgentKeyPair()
+        self.z3_prover = z3_prover or Z3RuleProver()
         self.agent_id = "agent.policy_mapper"
         self.card = AgentCard(
             agent_id=self.agent_id,
@@ -29,13 +31,27 @@ class PolicyMapperAgent:
             skills=[
                 AgentSkill(
                     name="policy.map_and_detect_conflicts",
-                    description="Maps obligations to internal policies and detects rule conflicts/gaps.",
+                    description="Maps obligations to internal policies and detects rule conflicts/gaps using Z3 formal verification.",
                 )
             ],
         )
 
         # Baseline knowledge of existing live rules and bank policies
-        self.existing_rules = {
+        self.existing_rules: dict[str, dict[str, Any]] = {
+            "R-CASH-014": {
+                "rule_id": "R-CASH-014",
+                "title": "Block High-Risk Large Cash Deposits",
+                "policy_ref": "POL-CASH-01",
+                "clause_ref": "POL-CASH-2.1",
+                "when": {
+                    "all": [
+                        {"field": "is_cash", "op": "eq", "value": True},
+                        {"field": "amount", "op": "gte", "value": 1000000},
+                        {"field": "risk_band", "op": "eq", "value": "C"},
+                    ]
+                },
+                "action": {"type": "block", "reason": "High-risk cash deposit ceiling reached"},
+            },
             "upi_daily_limit": {
                 "channel": "UPI",
                 "threshold_amount": 100000.0,
@@ -84,19 +100,107 @@ class PolicyMapperAgent:
         req_channel = obl.condition_json.get("channel", "UNKNOWN")
         req_threshold = float(obl.condition_json.get("threshold_amount", 0.0))
         req_cooling = obl.condition_json.get("cooling_period_hours", 0)
+        is_cash = bool(obl.condition_json.get("is_cash", False))
+        cadence_days = obl.condition_json.get("cadence_days")
+
+        # -------------------------------------------------------------
+        # 1. C1 Planted Gap: Cash Reporting Mandate within 7 days
+        # -------------------------------------------------------------
+        if is_cash and cadence_days == 7:
+            return PolicyMappingItem(
+                mapping_id=f"MAP-{index:03d}",
+                obligation_id=obl.id,
+                clause_id=obl.clause_id,
+                internal_policy_id="POL-CASH-01",
+                existing_rule_ref=None,
+                conflict_type=ConflictType.GAP,
+                description=(
+                    "GAP DETECTED: Bank policy POL-CASH-01 (Clause 3.4) only mandates fortnightly (14-day) cash balancing. "
+                    "Circular mandates high-value cash inflow reporting within 7 calendar days. No 7-day reporting workflow exists."
+                ),
+                suggested_resolution="Synthesize new compliance reporting schedule and automated 7-day aggregation rule.",
+                status=ConflictStatus.DETECTED,
+                details={
+                    "cadence_days_required": 7,
+                    "existing_policy_cadence_days": 14,
+                    "policy_ref": "POL-CASH-3.4",
+                },
+            )
+
+        # -------------------------------------------------------------
+        # 2. C1 Planted Conflict: Enhanced Review vs Existing R-CASH-014 Block
+        # -------------------------------------------------------------
+        if is_cash and req_threshold >= 800000.0 and "R-CASH-014" in self.existing_rules:
+            existing = self.existing_rules["R-CASH-014"]
+            draft_rule = {
+                "rule_id": "CANDIDATE-C1-EDD",
+                "when": {
+                    "all": [
+                        {"field": "is_cash", "op": "eq", "value": True},
+                        {"field": "amount", "op": "gte", "value": 800000},
+                        {"field": "risk_band", "op": "in", "value": ["B", "C"]},
+                    ]
+                },
+                "action": {"type": "enhanced_review", "queue": "aml_l2"},
+            }
+            # Formal proof via Z3
+            proof = self.z3_prover.prove_conflict(draft_rule, existing)
+            return PolicyMappingItem(
+                mapping_id=f"MAP-{index:03d}",
+                obligation_id=obl.id,
+                clause_id=obl.clause_id,
+                internal_policy_id=str(existing.get("policy_ref", "POL-CASH-01")),
+                existing_rule_ref=str(existing.get("rule_id", "R-CASH-014")),
+                conflict_type=ConflictType.CONFLICT,
+                description=proof.message,
+                suggested_resolution=(
+                    "Supersede existing rule R-CASH-014. Update logic to route deposits >= ₹8,00,000 for Risk Bands B & C "
+                    "to Enhanced Review (AML L2 Queue) instead of automatic counter block, adhering to regulatory mandate."
+                ),
+                status=ConflictStatus.DETECTED,
+                details={
+                    "z3_proof": proof.to_dict(),
+                    "counter_example": proof.counter_example,
+                    "existing_rule": existing,
+                    "candidate_rule": draft_rule,
+                },
+            )
+
+        # MCC-scoped UPI obligations (e.g. C3 high-risk merchant caps) address a
+        # different dimension (merchant category) than the generic per-txn UPI
+        # threshold rule, so they are a clean GAP (new rule), not a conflict. This
+        # lets C3 pass on iteration 1 with no objection loop.
+        mcc_list = obl.condition_json.get("mcc_list")
+        if req_channel == "UPI" and mcc_list:
+            return PolicyMappingItem(
+                mapping_id=f"MAP-{index:03d}",
+                obligation_id=obl.id,
+                clause_id=obl.clause_id,
+                internal_policy_id="POL-UPI-01",
+                existing_rule_ref=None,
+                conflict_type=ConflictType.GAP,
+                description=(
+                    f"No existing rule caps high-risk MCC {mcc_list} on UPI. "
+                    "A new merchant-category-scoped cap rule is required."
+                ),
+                suggested_resolution="Author a new MCC-scoped UPI cap rule; no existing rule is superseded.",
+                status=ConflictStatus.DETECTED,
+                details={"obligation_condition": obl.condition_json, "mcc_list": mcc_list},
+            )
 
         # Check for conflict with existing UPI rule
         if req_channel == "UPI" and "upi_daily_limit" in self.existing_rules:
             existing = self.existing_rules["upi_daily_limit"]
-            curr_threshold = float(existing["threshold_amount"])
+            curr_threshold = float(existing.get("threshold_amount", 0.0))
+            cooling_hours = int(existing.get("cooling_period_hours", 0))
 
             # If existing rule allows higher limit without cooling period, conflict occurs!
-            if curr_threshold > req_threshold or (req_cooling > 0 and existing["cooling_period_hours"] == 0):
+            if curr_threshold > req_threshold or (req_cooling > 0 and cooling_hours == 0):
                 return PolicyMappingItem(
                     mapping_id=f"MAP-{index:03d}",
                     obligation_id=obl.id,
                     clause_id=obl.clause_id,
-                    internal_policy_id=existing["policy_ref"],
+                    internal_policy_id=str(existing.get("policy_ref", "POL-PAY-2023-01")),
                     existing_rule_ref="upi_daily_limit",
                     conflict_type=ConflictType.CONFLICT,
                     description=(

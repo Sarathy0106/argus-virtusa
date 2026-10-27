@@ -5,7 +5,6 @@ false-positive estimates, and operational queue surge (analyst hours).
 Raises impact objections if alert surge exceeds risk tolerance.
 """
 
-from typing import Any
 from pydantic import BaseModel, Field
 
 from contracts.agents import AgentCard, AgentSkill
@@ -65,34 +64,34 @@ class ImpactAgent:
             1,
         )
 
-        # Operational queue load: Assume 10 mins (0.166 hr) per manual review
-        est_ops_hours = round(backtest.candidate_alerts * 0.166, 1)
+        # Operational queue load, computed from the real candidate alert count.
+        # Prefer the backtest's own ops-load figure when present (DuckDB path).
+        if backtest.ops_hours_per_day:
+            est_ops_hours = round(backtest.ops_hours_per_day, 2)
+        else:
+            est_ops_hours = round(backtest.candidate_alerts * (10.0 / 60.0), 2)
 
-        # Segments breakdown
+        # Segment breakdown derived from the backtest's real per-segment counts.
         cand_alerts = backtest.candidate_alerts or 1
-        segments = [
-            SegmentImpact(
-                segment_name="Retail UPI Consumers",
-                impacted_accounts=int(backtest.candidate_alerts * 0.70),
-                volume_flagged_inr=round(backtest.total_flagged_volume * 0.65, 2),
-                share_of_alerts_pct=70.0,
-            ),
-            SegmentImpact(
-                segment_name="Merchant / Small Business Payees",
-                impacted_accounts=int(backtest.candidate_alerts * 0.20),
-                volume_flagged_inr=round(backtest.total_flagged_volume * 0.25, 2),
-                share_of_alerts_pct=20.0,
-            ),
-            SegmentImpact(
-                segment_name="High-Net-Worth Individuals",
-                impacted_accounts=int(backtest.candidate_alerts * 0.10),
-                volume_flagged_inr=round(backtest.total_flagged_volume * 0.10, 2),
-                share_of_alerts_pct=10.0,
-            ),
-        ]
+        segments = []
+        for seg in backtest.segments:
+            share = round((seg.candidate_alerts / cand_alerts) * 100, 2)
+            segments.append(
+                SegmentImpact(
+                    segment_name=seg.segment,
+                    impacted_accounts=seg.candidate_alerts,
+                    volume_flagged_inr=0.0,
+                    share_of_alerts_pct=share,
+                )
+            )
 
-        # False positive estimation (typically 65-80% for raw threshold rules without ML calibration)
-        est_fp_pct = 68.5
+        # False-positive proxy derived from the data: the share of candidate
+        # alerts NOT independently labelled an alert in the dataset. When segment
+        # detail is unavailable we leave this at 0 rather than inventing a number.
+        est_fp_pct = 0.0
+        if backtest.candidate_alerts and backtest.delta_alerts >= 0:
+            new_only = backtest.candidate_alerts - backtest.baseline_alerts
+            est_fp_pct = round((max(new_only, 0) / backtest.candidate_alerts) * 100, 2)
 
         # Check for excessive alert surge
         objection = None

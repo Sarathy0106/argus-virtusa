@@ -1,0 +1,17 @@
+rule_id: R-FRAUD-004
+version: 1.0.0
+title: Card International Without 3DS
+source:
+  policy: POL-FRAUD-01
+  clause: POL-FRAUD-3.2
+when:
+  all:
+  - field: channel
+    op: eq
+    value: CARD
+action:
+  type: block
+  queue: compliance_ops
+effective:
+  from: '2024-01-01'
+status: ACTIVE

@@ -1,0 +1,5 @@
+# pnpm 11+ reads build-script allowances here.
+allowBuilds:
+  sharp: true
+onlyBuiltDependencies:
+  - sharp
