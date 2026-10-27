@@ -18,18 +18,34 @@ from urllib.parse import urlparse
 
 from services.config import get_settings
 
+# The pipeline's obligation extractor is deterministic by default (B14). The LLM
+# path is used only when explicitly enabled AND Ollama is reachable; otherwise we
+# honestly report the deterministic fallback. This flag is flipped on only when a
+# real LLM extraction path is wired and healthy.
+LLM_EXTRACTION_ENABLED = False
 
-def probe_llm_mode(timeout_s: float = 0.25) -> str:
-    """Return 'ollama' only if the configured Ollama runtime accepts a TCP
-    connection right now, otherwise 'deterministic_fallback'. This is a real
-    probe: if Ollama is not running, the UI badge will honestly say fallback.
-    """
+
+def ollama_reachable(timeout_s: float = 0.25) -> bool:
+    """True iff the configured Ollama runtime accepts a TCP connection now."""
     settings = get_settings()
     parsed = urlparse(settings.OLLAMA_BASE_URL)
     host = parsed.hostname or "localhost"
     port = parsed.port or (443 if parsed.scheme == "https" else 11434)
     try:
         with socket.create_connection((host, port), timeout=timeout_s):
-            return "ollama"
+            return True
     except (OSError, ValueError):
-        return "deterministic_fallback"
+        return False
+
+
+def probe_llm_mode(timeout_s: float = 0.25) -> str:
+    """Honest llm_mode for the UI badge (B14).
+
+    Returns 'ollama' only when the LLM extraction path is actually enabled AND
+    Ollama is reachable. Since the shipped pipeline uses the deterministic
+    extractor, the honest answer is 'deterministic_fallback' even if an Ollama
+    server happens to be listening — the UI must not claim an LLM it isn't using.
+    """
+    if LLM_EXTRACTION_ENABLED and ollama_reachable(timeout_s):
+        return "ollama"
+    return "deterministic_fallback"

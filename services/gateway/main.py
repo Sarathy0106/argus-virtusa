@@ -29,7 +29,8 @@ from services.config import get_settings
 from services.events.bus import get_event_bus
 from services.gateway.approvals import router as approvals_router
 from services.gateway.cases import router as cases_router
-from services.gateway.meta import probe_llm_mode
+from services.gateway.memory_routes import router as memory_router
+from services.gateway.meta import ollama_reachable, probe_llm_mode
 from services.gateway.rollout_routes import router as rollout_router
 from services.ledger.ledger import AuditChainIntegrityError
 from services.orchestrator.v2_state_machine import (
@@ -100,6 +101,24 @@ def _chain_status() -> tuple[bool, int, int | None]:
         return False, count, broken
 
 
+@app.get("/.well-known/agent.json", tags=["A2A"])
+def agent_directory():
+    """A2A agent directory (B13): published agent cards with their public keys and
+    skills. A forged/modified envelope is rejected by the broker on receipt."""
+    cards = []
+    for card in v2_orchestrator.broker.registered_agents.values():
+        cards.append(
+            {
+                "agent_id": card.agent_id,
+                "name": card.name,
+                "version": card.version,
+                "public_key": card.public_key,
+                "skills": [s.name for s in card.skills],
+            }
+        )
+    return {"agents": cards, "transport": "in_process_signed_a2a"}
+
+
 @app.get("/health", tags=["System"])
 def health_check():
     """Liveness probe. Reports only process-level truth."""
@@ -124,6 +143,7 @@ def get_meta():
         "service": "argus-v2-gateway",
         "version": "2.0.0",
         "llm_mode": probe_llm_mode(),
+        "ollama_reachable": ollama_reachable(),
         "chain_verified": verified,
         "first_broken_index": broken,
         "last_event_seq": count,
@@ -270,3 +290,4 @@ app.include_router(v2)
 app.include_router(cases_router)
 app.include_router(approvals_router)
 app.include_router(rollout_router)
+app.include_router(memory_router)

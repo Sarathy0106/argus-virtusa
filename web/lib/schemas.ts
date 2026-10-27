@@ -8,6 +8,7 @@ export const MetaSchema = z.object({
   service: z.string(),
   version: z.string(),
   llm_mode: z.enum(["ollama", "deterministic_fallback", "replay_cache"]),
+  ollama_reachable: z.boolean().optional(),
   chain_verified: z.boolean(),
   first_broken_index: z.number().int().nullable(),
   last_event_seq: z.number().int(),
